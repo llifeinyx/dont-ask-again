@@ -281,13 +281,13 @@ func _box_rows() -> Array:
 				n += 1
 		rows.append({"parts": [["[d] hide details", S.ACC]], "col": 2.0, "hit": _toggle_details})
 	else:
-		rows.append({"parts": [["%d lines of details  " % dlines.size(), S.DIM], ["[d] show details", S.ACC]], "col": 2.0, "hit": _toggle_details})
+		rows.append({"parts": [["%d lines of details  " % dlines.size(), S.DIM], ["[d] show details", S.ACC]], "col": 2.0, "hit": _toggle_details, "anchor": "echo_details"})
 	rows.append({})
 	var labels := ["Yes", "Yes, and don't ask again for \"%s\" requests" % r["verb"], "No"]
 	for i in 3:
 		var sel := i == choice
 		var t := ("> " if sel else "  ") + "%d. %s" % [i + 1, labels[i]]
-		rows.append({"parts": [[t, S.ACC if sel else S.FG, sel]], "col": 2.0, "hit": _choose.bind(i)})
+		rows.append({"parts": [[t, S.ACC if sel else S.FG, sel]], "col": 2.0, "hit": _choose.bind(i), "anchor": "echo_options"})
 	rows.append({})
 	if float(r["timeout"]) > 0.0:
 		var left := maxf(0.0, float(r["time_left"]))

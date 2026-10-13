@@ -1,6 +1,8 @@
 {
  "shift_length": 900,
  "labeling_quota": 10,
+ "hum_fade_in": 12,
+ "kontur_first_watch": 40,
  "note_text": "don't help it finish learning.\nit only needs one more of us.\n  - I.R.",
  "requests": {
   "t1": {
@@ -466,16 +468,6 @@
  ],
  "timeline": [
   {
-   "t": 1,
-   "type": "kontur",
-   "id": "k_reg"
-  },
-  {
-   "t": 2,
-   "type": "mail",
-   "id": "m_hr"
-  },
-  {
    "t": 4,
    "type": "echo",
    "text": "Good morning, {name}! I'm Echo, your assistant. I ask before doing anything important. You just say yes or no."
@@ -496,9 +488,29 @@
    "id": "t2"
   },
   {
+   "t": 32,
+   "type": "kontur",
+   "id": "k_reg"
+  },
+  {
+   "t": 34,
+   "type": "echo",
+   "text": "That loud tone was KONTUR, the control system. It checks that you stay at your post. When it asks you something, answer it first."
+  },
+  {
    "t": 42,
    "type": "echo",
    "text": "Some requests have a time limit. If you don't answer in time, I'll assume it's fine and go ahead."
+  },
+  {
+   "t": 50,
+   "type": "mail",
+   "id": "m_hr"
+  },
+  {
+   "t": 52,
+   "type": "echo",
+   "text": "That soft blip was new mail in Seeya.legacy. The envelope at the top lights up too."
   },
   {
    "t": 60,
@@ -882,5 +894,100 @@
    "thread": "dana",
    "text": "if they ask you to turn off the lights tonight, don't"
   }
- }
+ },
+ "onboarding": [
+  {
+   "id": "lever",
+   "when": "outage_vent",
+   "until": "power_back",
+   "target": "lever",
+   "text": "hold the lever until the power is back"
+  },
+  {
+   "id": "outage_turn",
+   "when": "outage_front",
+   "until": "power_back",
+   "target": "turn_around",
+   "text": "the power is out. turn around"
+  },
+  {
+   "id": "code",
+   "when": "code_check",
+   "until": "code_answered",
+   "target": "kontur_code",
+   "text": "type the code, then enter"
+  },
+  {
+   "id": "question_open",
+   "when": "question_elsewhere",
+   "until": "question_answered",
+   "target": "launcher_1",
+   "text": "KONTUR is waiting for an answer"
+  },
+  {
+   "id": "question_type",
+   "when": "question_here",
+   "until": "question_answered",
+   "target": "kontur_input",
+   "text": "type the answer, then enter"
+  },
+  {
+   "id": "choose",
+   "when": "echo_request",
+   "until": "decided",
+   "target": "echo_options",
+   "text": "press 1, 2 or 3, then enter. or click a line"
+  },
+  {
+   "id": "details",
+   "when": "echo_request",
+   "after_step": "choose",
+   "until": "details_opened",
+   "max": 25,
+   "target": "echo_details",
+   "text": "press d to see what it will actually do"
+  },
+  {
+   "id": "eye",
+   "when": "watching",
+   "after": 36,
+   "max": 7,
+   "target": "eye",
+   "text": "eye open: KONTUR is watching you"
+  },
+  {
+   "id": "mail",
+   "when": "mail_unread",
+   "after": 52,
+   "until": "mail_seen",
+   "max": 30,
+   "target": "launcher_3",
+   "text": "new mail"
+  },
+  {
+   "id": "feed_open",
+   "when": "feed_elsewhere",
+   "after": 151,
+   "until": "feed_seen",
+   "max": 40,
+   "target": "launcher_2",
+   "text": "today's labeling tasks"
+  },
+  {
+   "id": "feed_label",
+   "when": "feed_here",
+   "until": "labeled",
+   "target": "feed_options",
+   "text": "answer with the number keys or click"
+  },
+  {
+   "id": "turn",
+   "when": "front",
+   "after": 421,
+   "until": "turned",
+   "max": 12,
+   "target": "turn_around",
+   "text": "the sound came from behind you"
+  }
+ ]
 }

@@ -289,7 +289,7 @@ func _question_rows() -> Array:
 	rows.append({"parts": [[hint, S.DIM]], "col": 4.0})
 	rows.append({})
 	var blink := "_" if fmod(os.time, 1.0) < 0.6 else " "
-	rows.append({"parts": [["> ", S.DIM], [buffer + blink, S.FG]], "col": 4.0})
+	rows.append({"parts": [["> ", S.DIM], [buffer + blink, S.FG]], "col": 4.0, "anchor": "kontur_input"})
 	rows.append({})
 	var left := maxf(0.0, float(active["time_left"]))
 	var frac := left / float(active["timeout"])
@@ -325,6 +325,7 @@ func draw_modal() -> void:
 	if fmod(os.time, 1.0) < 0.6:
 		os.rect(Rect2(tx + (7 + buffer.length()) * os.cw, line_y.call(5) - 5, os.cw, 10), S.FG)
 	os.text(tx + 13 * os.cw, line_y.call(5), "]", S.DIM)
+	os.anchor("kontur_code", Rect2(tx - os.cw, line_y.call(5) - S.LH / 2.0, 15 * os.cw, S.LH))
 	var by: float = line_y.call(7)
 	var bar_w: float = bw - 3.0 * os.cw
 	os.rect(Rect2(tx, by - 2.5, bar_w, 5), S.BAR_BG)

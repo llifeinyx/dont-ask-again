@@ -106,12 +106,16 @@ func _on_signed(player_name: String) -> void:
 		s.autoplay_outage_delay = 4.0
 		shots.shift = s
 		shots.plan = [
+			{"t": 13, "tab": 0, "name": "01a_hint_choose"},
 			{"t": 26, "tab": 0, "name": "01_echo"},
+			{"t": 41, "name": "01b_hint_eye"},
 			{"t": 84.3, "name": "02_kontur_check"},
+			{"t": 153, "tab": 0, "name": "02a_hint_feed"},
 			{"t": 200.4, "tab": 1, "name": "03_kontur"},
 			{"t": 320.3, "tab": 0, "details": true, "name": "04_echo_diff"},
 			{"t": 362.5, "tab": 0, "name": "05_name_slip"},
 			{"t": 400, "tab": 2, "name": "06_feed"},
+			{"t": 422, "tab": 0, "name": "06a_hint_turn"},
 			{"t": 436, "tab": 3, "name": "07_seeya"},
 			{"t": 545, "tab": 2, "store": true, "name": "08_store"},
 			{"t": 622, "vent": true, "name": "09_vent_glint"},

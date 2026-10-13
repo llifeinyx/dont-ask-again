@@ -281,6 +281,7 @@ func _draw_label() -> void:
 		r += 1.0
 		os.put(r, QC, "> verify  [enter]", S.ACC, true)
 		os.hit_row(r, QC, QC + 18, _verify_captcha)
+		os.anchor_row("feed_options", r, QC, QC + 18)
 		r += 1.0
 	else:
 		var opts: Array = t["options"]
@@ -288,6 +289,7 @@ func _draw_label() -> void:
 			var sel := i == choice
 			os.put(r, QC, ("> " if sel else "  ") + "%d. %s" % [i + 1, opts[i]], S.ACC if sel else S.FG, sel)
 			os.hit_row(r, QC, QC + 20, _answer.bind(String(opts[i])))
+			os.anchor_row("feed_options", r, QC, QC + 20)
 			r += 1.0
 	r += 1.0
 	os.put(r, QC, "time on item  %.1f s" % shown_time, S.DIM)

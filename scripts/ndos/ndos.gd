@@ -30,6 +30,8 @@ var apps: Array = []
 var active := 0
 var modal = null            # an object with draw_modal() and modal_key(ev)
 var hits: Array = []        # [{"rect": Rect2 (logical), "cb": Callable}]
+var anchors: Dictionary = {} # name -> Rect2 (logical): places the onboarding can point at
+var hint: Dictionary = {}    # {"target": anchor name, "text": caption}; empty = no hint
 var toasts: Array = []      # [{"text", "kind", "life"}]
 var cw := 4.5               # logical width of one terminal column
 var cols := 120
@@ -127,6 +129,7 @@ func is_clickable(p: Vector2) -> bool:
 
 func _draw() -> void:
 	hits.clear()
+	anchors.clear()
 	if not power_on:
 		draw_rect(Rect2(Vector2.ZERO, size), Color.BLACK)
 		return
@@ -138,9 +141,11 @@ func _draw() -> void:
 	_draw_toasts()
 	if modal != null:
 		hits.clear()
+		anchors.clear()
 		rect(Rect2(0, 0, S.W, S.H), Color(0, 0, 0, 0.66))
 		_draw_eye(true, Color8(240, 80, 64))
 		modal.draw_modal()
+	_draw_hint()
 
 
 func _clock_x() -> float:
@@ -159,6 +164,7 @@ func _draw_panel() -> void:
 	if seeya.unread_count() > 0:
 		draw_circle(Vector2(x, 4) * S.K, 2.4 * S.K, S.ENVELOPE)
 	hit(Rect2(x - 14, 0, 18, 18), open_app.bind(3))
+	anchor("envelope", Rect2(x - 14, 1, 18, 16))
 	_draw_eye(kontur.watching, S.EYE_ON if kontur.watching else S.EYE_OFF)
 
 
@@ -169,6 +175,7 @@ func _draw_eye(open: bool, color: Color) -> void:
 	else:
 		tex(EYE_CLOSED, Rect2(cx - 8, 5, 16, 10), color)
 	hit(Rect2(cx - 10, 0, 20, 18), open_app.bind(1))
+	anchor("eye", Rect2(cx - 11, 1, 22, 16))
 
 
 func _draw_launcher() -> void:
@@ -186,6 +193,7 @@ func _draw_launcher() -> void:
 			rrect(Rect2(40 - bw, y - 19, bw + 1, 10), S.BADGE_RED if red else S.BADGE_BG, S.BADGE_LINE, 5.0)
 			text(40.5 - bw / 2.0, y - 14, b, Color.WHITE if red else S.DARK, S.UI_B, 14, 1)
 		hit(Rect2(4, y - 18, 38, 36), open_app.bind(i))
+		anchor("launcher_%d" % i, Rect2(3, y - 19, 38, 38))
 	for i in LOCKED_ICONS.size():
 		var y := 236.0 + i * 40.0
 		tex(LOCKED_ICONS[i], Rect2(6, y - 15, 32, 30))
@@ -229,6 +237,31 @@ func _toast_clicked(t: Dictionary) -> void:
 			open_app(3)
 		_:
 			open_app(0)
+
+
+## Onboarding: a pulsing frame around the place to click and a short caption next to it.
+func _draw_hint() -> void:
+	if hint.is_empty() or not anchors.has(String(hint["target"])):
+		return
+	var r: Rect2 = anchors[String(hint["target"])]
+	var pulse := 0.5 + 0.5 * sin(time * 5.0)
+	var c := Color(S.ACC, 0.55 + 0.45 * pulse)
+	rrect(r.grow(1.5 + pulse), Color(0, 0, 0, 0), c, 3.0, 1.2)
+	var caption := String(hint.get("text", ""))
+	if caption == "":
+		return
+	var w := text_width(caption) + 12.0
+	var h := S.LH + 4.0
+	# To the right of the target when it fits, otherwise below (or above near the bottom).
+	var pos := Vector2(r.end.x + 8.0, r.get_center().y - h / 2.0)
+	if pos.x + w > S.W - 4.0:
+		pos = Vector2(r.position.x, r.end.y + 5.0)
+		if pos.y + h > S.H - 2.0:
+			pos.y = r.position.y - h - 5.0
+	pos.x = clampf(pos.x, 2.0, S.W - w - 2.0)
+	var box := Rect2(pos, Vector2(w, h))
+	rrect(box, S.TBG, c, 3.0)
+	text(box.position.x + 6.0, box.get_center().y, caption, S.ACC)
 
 
 # --- drawing primitives (logical units) ---------------------------------------------
@@ -283,6 +316,12 @@ func text(x: float, y: float, s: String, color: Color, f: Font = S.MONO, px: int
 
 func hit(r: Rect2, cb: Callable) -> void:
 	hits.append({"rect": r, "cb": cb})
+
+
+## Names a drawn area so the onboarding hint can point at it. Several calls with the same
+## name merge into one rect.
+func anchor(anchor_name: String, r: Rect2) -> void:
+	anchors[anchor_name] = (anchors[anchor_name] as Rect2).merge(r) if anchors.has(anchor_name) else r
 
 
 # --- terminal grid helpers (rows/cols inside the app area) ----------------------------
@@ -346,6 +385,10 @@ func hit_row(row: float, c0: float, c1: float, cb: Callable) -> void:
 	hit(Rect2(cx(c0), ry(row) - S.LH / 2.0, (c1 - c0) * cw, S.LH), cb)
 
 
+func anchor_row(anchor_name: String, row: float, c0: float, c1: float) -> void:
+	anchor(anchor_name, Rect2(cx(c0), ry(row) - S.LH / 2.0, (c1 - c0) * cw, S.LH))
+
+
 ## Bottom input line ("> typed_") and the hint line, as in the Echo mockup.
 func footer(left: String, right := "", typed := "", show_cursor := true) -> void:
 	var yb := S.Y1 - 34.0
@@ -362,7 +405,7 @@ func footer(left: String, right := "", typed := "", show_cursor := true) -> void
 
 
 ## Draws prepared rows: {"parts": [[text, color, bold?]], "col": float, "hit": Callable,
-## "bg": Color (diff line background), "bar": [col, ncols, frac, color]}.
+## "bg": Color (diff line background), "bar": [col, ncols, frac, color], "anchor": String}.
 func draw_row(row: float, spec: Dictionary) -> void:
 	var col := float(spec.get("col", 0.0))
 	if spec.has("bg"):
@@ -373,6 +416,11 @@ func draw_row(row: float, spec: Dictionary) -> void:
 		bar(row, float(b[0]), float(b[1]), float(b[2]), b[3])
 	if spec.has("hit"):
 		hit_row(row, col, cols, spec["hit"])
+	if spec.has("anchor"):
+		var n := 0
+		for p in spec.get("parts", []):
+			n += String(p[0]).length()
+		anchor_row(String(spec["anchor"]), row, col, col + n + 1.0)
 	for h in spec.get("hits", []):
 		hit_row(row, float(h[0]), float(h[1]), h[2])
 

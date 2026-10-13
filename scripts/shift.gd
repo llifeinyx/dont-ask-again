@@ -10,6 +10,8 @@ const CrtScreen := preload("res://scripts/crt_screen.gd")
 const RoomProps := preload("res://scripts/room_props.gd")
 const VentDraw := preload("res://scripts/vent_draw.gd")
 const Reflection := preload("res://scripts/reflection.gd")
+const Onboarding := preload("res://scripts/onboarding.gd")
+const HintMarker := preload("res://scripts/hint_marker.gd")
 const ROOM_TEX := preload("res://art/room_front.jpg")
 const SPILL_TEX := preload("res://art/screen_spill.png")
 
@@ -53,6 +55,9 @@ var led: ColorRect
 var hold_bar: ProgressBar
 var note_popup: Label
 var fader: ColorRect
+var hint_marker
+var turn_button: Control
+var onboarding
 var echo
 var kontur
 var feed
@@ -68,6 +73,14 @@ func _ready() -> void:
 	timeline.sort_custom(func(a, b): return float(a["t"]) < float(b["t"]))
 	_build_front()
 	_build_vent()
+	kontur.watch_left = float(content.get("kontur_first_watch", kontur.watch_left))
+
+	hint_marker = Ui.full_rect(HintMarker.new())
+	hint_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_marker.visible = false
+	add_child(hint_marker)
+	onboarding = Onboarding.new()
+	onboarding.setup(self, content.get("onboarding", []))
 
 	fader = ColorRect.new()
 	fader.color = Color.BLACK
@@ -78,7 +91,7 @@ func _ready() -> void:
 
 	GameState.changed.connect(_on_state_changed)
 	Sfx.facing_vent = false
-	Sfx.set_hum(true)
+	Sfx.set_hum(true, float(content.get("hum_fade_in", 0.0)))
 
 
 # --- building the views --------------------------------------------------------
@@ -140,9 +153,9 @@ func _build_front() -> void:
 	reflection.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	front.add_child(reflection)
 
-	var turn := Ui.place(Ui.button("[ turn around ]", _turn_to_vent, 8), Rect2(276, 339, 88, 14))
-	turn.modulate.a = 0.55
-	front.add_child(turn)
+	turn_button = Ui.place(Ui.button("[ turn around ]", _turn_to_vent, 8), Rect2(276, 339, 88, 14))
+	turn_button.modulate.a = 0.55
+	front.add_child(turn_button)
 
 
 func _build_vent() -> void:
@@ -201,6 +214,7 @@ func _process(delta: float) -> void:
 			return
 
 	ndos.tick(delta)
+	onboarding.tick(delta)
 	if not power_on:
 		outage_time += delta
 		led.visible = fmod(outage_time, 1.0) < 0.5
@@ -268,6 +282,7 @@ func _on_state_changed() -> void:
 func _end_shift(fired: bool) -> void:
 	ended = true
 	lever_holding = false
+	hint_marker.hide_hint()
 	Sfx.set_hum(false)
 	Sfx.facing_vent = false
 	finished.emit(fired)
@@ -323,6 +338,15 @@ func on_purchase(_id: String) -> void:
 
 func select_app(i: int) -> void:
 	ndos.open_app(i)
+
+
+## Room-view rects the onboarding can point at (outside the monitor).
+func room_target_rect(target: String) -> Rect2:
+	match target:
+		"lever":
+			return VentDraw.LEVER_RECT
+		_:
+			return turn_button.get_rect()
 
 
 # --- turning around ----------------------------------------------------------------

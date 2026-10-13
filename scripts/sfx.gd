@@ -4,12 +4,14 @@ extends Node
 ## while the player faces the terminal.
 
 const RATE := 22050
+const HUM_DB := -13.0
 
 var sounds: Dictionary = {}
 var players: Array[AudioStreamPlayer] = []
 var hum_player: AudioStreamPlayer
 var facing_vent: bool = false
 var _rng := RandomNumberGenerator.new()
+var _hum_tween: Tween
 
 
 func _ready() -> void:
@@ -24,7 +26,7 @@ func _ready() -> void:
 		players.append(p)
 	hum_player = AudioStreamPlayer.new()
 	hum_player.stream = sounds["hum"]
-	hum_player.volume_db = -13.0
+	hum_player.volume_db = HUM_DB
 	add_child(hum_player)
 
 
@@ -40,8 +42,17 @@ func play_vent(id: String, volume_db: float = 0.0) -> void:
 		_play(id, volume_db, 1.0, "BehindL" if _rng.randf() < 0.5 else "BehindR")
 
 
-func set_hum(on: bool) -> void:
+## fade_in > 0 brings the hum up slowly from silence (the first minute of day 1).
+func set_hum(on: bool, fade_in: float = 0.0) -> void:
+	if _hum_tween != null:
+		_hum_tween.kill()
+		_hum_tween = null
 	if on and not hum_player.playing:
+		hum_player.volume_db = HUM_DB
+		if fade_in > 0.0:
+			hum_player.volume_db = -60.0
+			_hum_tween = create_tween()
+			_hum_tween.tween_property(hum_player, "volume_db", HUM_DB, fade_in).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 		hum_player.play()
 	elif not on:
 		hum_player.stop()
