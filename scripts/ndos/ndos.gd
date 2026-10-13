@@ -1,5 +1,5 @@
 extends Control
-## ND-OS: the operator's desktop, drawn inside the CRT (SubViewport 1280x960).
+## ND-OS: the operator's desktop, drawn inside the CRT (SubViewport 640x480 * S.K).
 ## Everything is custom-drawn in logical 640x480 units; S.K converts to pixels.
 ## No windows, no menus: a taskbar (KONTUR eye, mail, clock), a launcher with four
 ## programs (and three locked ones), and the active program filling the rest.
@@ -28,10 +28,9 @@ var feed
 var seeya
 var apps: Array = []
 var active := 0
-var modal = null            # an object with draw_modal() and modal_key(ev)
 var hits: Array = []        # [{"rect": Rect2 (logical), "cb": Callable}]
 var toasts: Array = []      # [{"text", "kind", "life"}]
-var cw := 4.5               # logical width of one terminal column
+var cw := 5.0               # logical width of one terminal column (S.CW)
 var cols := 120
 var time := 0.0
 var power_on := true
@@ -51,7 +50,7 @@ func setup(owner_shift, content: Dictionary) -> void:
 func _ready() -> void:
 	size = Vector2(S.W, S.H) * S.K
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cw = S.MONO.get_string_size("M", HORIZONTAL_ALIGNMENT_LEFT, -1, S.MONO_PX).x / S.K
+	cw = S.CW
 	cols = int((S.X1 - S.X0 - 24.0) / cw)
 
 
@@ -97,9 +96,6 @@ func clear_toasts() -> void:
 func handle_key(ev: InputEventKey) -> bool:
 	if not power_on or not ev.pressed:
 		return false
-	if modal != null:
-		modal.modal_key(ev)
-		return true
 	if ev.ctrl_pressed and ev.keycode >= KEY_1 and ev.keycode <= KEY_4:
 		open_app(ev.keycode - KEY_1)
 		return true
@@ -136,15 +132,10 @@ func _draw() -> void:
 	rect(Rect2(S.X0, S.Y0, S.X1 - S.X0, S.Y1 - S.Y0), S.TBG)
 	apps[active].draw()
 	_draw_toasts()
-	if modal != null:
-		hits.clear()
-		rect(Rect2(0, 0, S.W, S.H), Color(0, 0, 0, 0.66))
-		_draw_eye(true, Color8(240, 80, 64))
-		modal.draw_modal()
 
 
 func _clock_x() -> float:
-	return 634.0 - text_width("Tue " + shift.clock_text(), S.UI, 16) - 14.0
+	return S.W - S.SAFE_X - text_width("Tue " + shift.clock_text(), S.UI, S.UI_PX_BIG) - 14.0
 
 
 func _draw_panel() -> void:
@@ -152,8 +143,8 @@ func _draw_panel() -> void:
 	var h := 18.0 * S.K
 	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)]),
 		PackedColorArray([S.PANEL_TOP, S.PANEL_TOP, S.PANEL_BOT, S.PANEL_BOT]))
-	text(10, 9, "ND-OS", S.PANEL_TXT, S.UI_B, 14)
-	text(634, 9, "Tue " + shift.clock_text(), S.PANEL_TXT, S.UI, 16, 2)
+	text(S.SAFE_X, 9, "ND-OS", S.PANEL_TXT, S.UI_B, S.UI_PX)
+	text(S.W - S.SAFE_X, 9, "Tue " + shift.clock_text(), S.PANEL_TXT, S.UI, S.UI_PX_BIG, 2)
 	var x := _clock_x()
 	tex(ENVELOPE, Rect2(x - 12, 3, 13, 12), S.ENVELOPE)
 	if seeya.unread_count() > 0:
@@ -182,9 +173,9 @@ func _draw_launcher() -> void:
 		var b: String = apps[i].badge()
 		if b != "":
 			var red := b == "!"
-			var bw := text_width(b, S.UI_B, 14) + 8.0
+			var bw := text_width(b, S.UI_B, S.UI_PX) + 8.0
 			rrect(Rect2(40 - bw, y - 19, bw + 1, 10), S.BADGE_RED if red else S.BADGE_BG, S.BADGE_LINE, 5.0)
-			text(40.5 - bw / 2.0, y - 14, b, Color.WHITE if red else S.DARK, S.UI_B, 14, 1)
+			text(40.5 - bw / 2.0, y - 14, b, Color.WHITE if red else S.DARK, S.UI_B, S.UI_PX, 1)
 		hit(Rect2(4, y - 18, 38, 36), open_app.bind(i))
 	for i in LOCKED_ICONS.size():
 		var y := 236.0 + i * 40.0
@@ -202,6 +193,8 @@ func _draw_toasts() -> void:
 	var w := 232.0
 	var x := S.X1 - w - 8.0
 	var tcols := int((w - 16.0) / cw)
+	if active != 1 and kontur.active != null:
+		y = _draw_kontur_alert(x, y, w, tcols)
 	for t in toasts:
 		var kind := String(t["kind"])
 		var lines := S.wrap(String(t["text"]), tcols)
@@ -218,6 +211,39 @@ func _draw_toasts() -> void:
 			text(x + 8, y + 6 + S.LH * (i + 1.5), lines[i], S.FG, S.MONO, S.MONO_PX)
 		hit(r, _toast_clicked.bind(t))
 		y += hgt + 4.0
+
+
+## An open KONTUR question can only be answered inside Kontur.watchdog, so while the
+## operator is in another program the plate stays in the notification column with the
+## clock running. Returns the y where the ordinary toasts continue.
+func _draw_kontur_alert(x: float, y: float, w: float, tcols: int) -> float:
+	var q: Dictionary = kontur.active
+	var left: float = maxf(0.0, float(q["time_left"]))
+	var timeout: float = float(q["timeout"])
+	var blink: bool = left < timeout * 0.4 and fmod(time, 0.9) < 0.45
+	var border: Color = S.RED if blink else S.RED_D
+	var lines := S.wrap(String(q["text"]), tcols)
+	if lines.size() > 3:
+		lines = lines.slice(0, 3)
+	var hgt := 18.0 + (lines.size() + 2) * S.LH
+	var r := Rect2(x, y, w, hgt)
+	rect(r.grow(2), S.TBG)
+	rrect(r, S.TBG, border, 3.0)
+	var head := "ATTENTION CHECK" if String(q["kind"]) == "code" else "RESPONSE REQUIRED"
+	text(x + 8, y + 6 + S.LH * 0.5, "KONTUR  ·  " + head, S.RED, S.MONO_B, S.MONO_PX)
+	text(x + w - 8, y + 6 + S.LH * 0.5, "%ds" % int(ceil(left)), border, S.MONO_B, S.MONO_PX, 2)
+	for i in lines.size():
+		text(x + 8, y + 6 + S.LH * (i + 1.5), lines[i], S.FG, S.MONO, S.MONO_PX)
+	text(x + 8, y + 6 + S.LH * (lines.size() + 1.5), "answer in Kontur.watchdog  [ctrl+2]", S.ACC, S.MONO_B, S.MONO_PX)
+	var bar_y := y + hgt - 7.0
+	rect(Rect2(x + 8, bar_y, w - 16.0, 3.0), S.BAR_BG)
+	rect(Rect2(x + 8, bar_y, (w - 16.0) * left / timeout, 3.0), S.RED)
+	hit(r, _kontur_alert_clicked)
+	return y + hgt + 4.0
+
+
+func _kontur_alert_clicked() -> void:
+	open_app(1)
 
 
 func _toast_clicked(t: Dictionary) -> void:

@@ -97,15 +97,25 @@ func _run() -> void:
 		_click_ui(target)
 		await get_tree().process_frame
 		_check("click option 1 -> allow", GameState.decisions.size() == before + 1 and String(GameState.decisions[-1]["decision"]) == "allow")
-	# KONTUR attention check (t=84): a modal that takes typed digits from any program.
-	while os.modal == null:
-		await get_tree().process_frame
+	# KONTUR attention check (t=84): answerable only inside Kontur.watchdog. Stay in
+	# another program, check the alert plate is there, click it, then type the code.
 	_click_ui(Vector2(22, 166))
+	while shift.kontur.active == null:
+		await get_tree().process_frame
 	await get_tree().process_frame
-	_check("modal blocks the launcher", os.active != 3)
+	await get_tree().process_frame
+	var alert = null
+	for h in os.hits:
+		if (h["cb"] as Callable).get_method() == "_kontur_alert_clicked":
+			alert = (h["rect"] as Rect2).get_center()
+	_check("kontur check shows an alert plate outside Kontur.watchdog", alert != null and os.active == 3)
+	if alert != null:
+		_click_ui(alert)
+		await get_tree().process_frame
+		_check("click the plate -> Kontur.watchdog", os.active == 1)
 	for ch in "4471":
 		_key(KEY_0 + int(ch), ch.unicode_at(0))
 	_key(KEY_ENTER)
 	await get_tree().process_frame
-	_check("typed code accepted, modal closed", os.modal == null and bool(GameState.kontur_results[-1]["ok"]))
+	_check("typed code accepted in Kontur.watchdog", shift.kontur.active == null and bool(GameState.kontur_results[-1]["ok"]))
 	get_tree().quit()

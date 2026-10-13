@@ -6,6 +6,7 @@ signal finished(fired: bool)
 
 const Ui := preload("res://scripts/ui.gd")
 const NdOs := preload("res://scripts/ndos/ndos.gd")
+const NdStyle := preload("res://scripts/ndos/nd_style.gd")
 const CrtScreen := preload("res://scripts/crt_screen.gd")
 const RoomProps := preload("res://scripts/room_props.gd")
 const VentDraw := preload("res://scripts/vent_draw.gd")
@@ -107,9 +108,9 @@ func _build_front() -> void:
 	spill.material = add
 	front.add_child(spill)
 
-	# ND-OS renders into its own 2x viewport; the CRT shows it on the glass.
+	# ND-OS renders into its own supersampled viewport; the CRT shows it on the glass.
 	screen_vp = SubViewport.new()
-	screen_vp.size = Vector2i(1280, 960)
+	screen_vp.size = Vector2i(int(NdStyle.W * NdStyle.K), int(NdStyle.H * NdStyle.K))
 	screen_vp.disable_3d = true
 	screen_vp.transparent_bg = false
 	screen_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -513,7 +514,12 @@ func _autoplay(delta: float) -> void:
 		return
 	_auto_acc = 0.0
 	if kontur.active != null:
-		if elapsed - kontur.asked_at > 2.5:
+		# A check cannot be answered from another program: notice it, switch, then type.
+		if elapsed - kontur.asked_at < 2.0:
+			return
+		if ndos.active != 1:
+			ndos.open_app(1)
+		elif elapsed - kontur.asked_at > 3.5:
 			kontur.autoplay_answer()
 		return
 	if echo.pending_count() > 0 and randf() < autoplay_console_rate:
