@@ -1,7 +1,8 @@
 extends "res://scripts/ndos/nd_app.gd"
 ## Kontur.watchdog: the control system. Asks questions that need typed answers in time,
 ## logs violations, and watches the operator only some of the time (the eye in the panel).
-## Attention checks ("code") open a modal over everything that cannot be dismissed.
+## A question can only be answered here: everywhere else the shell shows an alert plate
+## that sends the operator to this program, and the clock keeps running.
 
 const WATCH_ON := Vector2(14.0, 30.0)     # seconds KONTUR keeps watching
 const WATCH_OFF := Vector2(22.0, 55.0)    # seconds between watching windows
@@ -39,8 +40,6 @@ func add_message(id: String, data: Dictionary) -> void:
 		return
 	var timeout := float(data.get("timeout", 20))
 	queue.append({"id": id, "data": data, "text": text, "kind": kind, "time_left": timeout, "timeout": timeout})
-	if kind != "code":
-		shift.notify("Response required. Open Kontur.watchdog.", "kontur")
 	if active == null:
 		_activate_next()
 
@@ -65,20 +64,16 @@ func violation(reason: String) -> void:
 	GameState.notify()
 
 
+## The shell draws the alert plate from `active`, so activating a question is the whole
+## notification: no toast, it would say the same thing and then expire mid-question.
 func _activate_next() -> void:
 	active = queue.pop_front() if queue.size() > 0 else null
 	buffer = ""
 	if active == null:
-		if os.modal == self:
-			os.modal = null
 		return
 	question_no += 1
 	asked_at = float(shift.elapsed)
-	if String(active["kind"]) == "code":
-		os.modal = self
-		Sfx.play("alert", -2.0)
-	else:
-		os.modal = null
+	Sfx.play("alert", -2.0)
 
 
 func tick(delta: float) -> void:
@@ -189,14 +184,9 @@ func _seen_turn() -> void:
 # --- input --------------------------------------------------------------------------
 
 func key(ev: InputEventKey) -> bool:
-	if active == null or String(active["kind"]) == "code":
+	if active == null:
 		return false
-	return _type(ev, 64)
-
-
-func modal_key(ev: InputEventKey) -> void:
-	if active != null:
-		_type(ev, 8)
+	return _type(ev, 8 if String(active["kind"]) == "code" else 64)
 
 
 func _type(ev: InputEventKey, max_len: int) -> bool:
@@ -262,12 +252,10 @@ func draw() -> void:
 	r += 1.0
 	if active == null:
 		os.segs(r, [["no open questions. remain at your workstation.", S.FAINT]])
-	elif String(active["kind"]) == "code":
-		os.segs(r, [["attention check in progress", S.RED]])
 	else:
 		os.segs(r, [[asked_clock() + "  ", S.FAINT], ["kontur  ", S.RED, true], ["Question %d" % question_no, S.BRIGHT, true]])
 		var top := r + 1.0
-		os.frame(top, top + q.size() + 1, 2, os.cols, S.RED_D)
+		os.frame(top, top + q.size() + 1, 2, os.cols, S.RED if String(active["kind"]) == "code" else S.RED_D)
 		for i in q.size():
 			os.draw_row(top + 1 + i, q[i])
 	var hint := "type answer · enter send · silence = violation" if active != null else "nothing to answer"
@@ -279,13 +267,13 @@ func asked_clock() -> String:
 
 
 func _question_rows() -> Array:
-	if active == null or String(active["kind"]) == "code":
+	if active == null:
 		return []
 	var rows: Array = []
 	rows.append_array(os.wrap_rows([], String(active["text"]), S.BRIGHT, false, 4.0))
 	rows.append({})
 	var hint: String = {"number": "a number from 1 to 10", "type": "type the text exactly",
-		"free": "describe it in your own words"}.get(String(active["kind"]), "")
+		"free": "describe it in your own words", "code": "type the code exactly"}.get(String(active["kind"]), "")
 	rows.append({"parts": [[hint, S.DIM]], "col": 4.0})
 	rows.append({})
 	var blink := "_" if fmod(os.time, 1.0) < 0.6 else " "
@@ -295,43 +283,6 @@ func _question_rows() -> Array:
 	var frac := left / float(active["timeout"])
 	rows.append({"parts": [["no answer in %ds = violation" % int(ceil(left)), S.DIM]], "col": 4.0, "bar": [34, 30, frac, S.RED_D]})
 	return rows
-
-
-## The attention check, drawn by the shell above everything else.
-func draw_modal() -> void:
-	if active == null:
-		return
-	var w := 60.0
-	var h := 12.0
-	var bx0: float = (S.X0 + S.X1) / 2.0 - w * os.cw / 2.0
-	var by0 := 168.0
-	var bw: float = w * os.cw
-	var bh := h * S.LH
-	os.rect(Rect2(bx0 - 3, by0 - 3, bw + 6, bh + 6), S.TBG)
-	os.rect(Rect2(bx0, by0, bw, bh), S.TBG)
-	os.rect(Rect2(bx0, by0, bw, bh), S.RED, false, 1.0)
-	os.rect(Rect2(bx0 + 2.5, by0 + 2.5, bw - 5, bh - 5), S.RED_D, false, 0.6)
-	os.rect(Rect2(bx0 + 2.5, by0 + 2.5, bw - 5, S.LH + 1.5), S.RED)
-	var line_y := func(r: float) -> float: return by0 + 8.0 + r * S.LH
-	var tx: float = bx0 + 1.5 * os.cw
-	var left := maxf(0.0, float(active["time_left"]))
-	os.text(tx, line_y.call(0), "KONTUR  ·  ATTENTION CHECK", S.TBG, S.MONO_B)
-	os.text(bx0 + bw - 1.5 * os.cw, line_y.call(0), "%ds" % int(ceil(left)), S.TBG, S.MONO_B, S.MONO_PX, 2)
-	os.text(tx, line_y.call(2), "Operator %s, confirm your presence." % GameState.OPERATOR_NO, S.BRIGHT)
-	os.text(tx, line_y.call(3), "Enter code ", S.BRIGHT)
-	os.text(tx + 11 * os.cw, line_y.call(3), String(active["data"]["code"]), S.RED, S.MONO_B)
-	os.text(tx, line_y.call(5), "code  [", S.DIM)
-	os.text(tx + 7 * os.cw, line_y.call(5), buffer, S.BRIGHT, S.MONO_B)
-	if fmod(os.time, 1.0) < 0.6:
-		os.rect(Rect2(tx + (7 + buffer.length()) * os.cw, line_y.call(5) - 5, os.cw, 10), S.FG)
-	os.text(tx + 13 * os.cw, line_y.call(5), "]", S.DIM)
-	os.anchor("kontur_code", Rect2(tx - os.cw, line_y.call(5) - S.LH / 2.0, 15 * os.cw, S.LH))
-	var by: float = line_y.call(7)
-	var bar_w: float = bw - 3.0 * os.cw
-	os.rect(Rect2(tx, by - 2.5, bar_w, 5), S.BAR_BG)
-	os.rect(Rect2(tx, by - 2.5, bar_w * left / float(active["timeout"]), 5), S.RED)
-	os.text(tx, line_y.call(9), "this check cannot be dismissed", S.DIM)
-	os.text(tx, line_y.call(10), "no answer = violation %d/%d" % [GameState.violations + 1, GameState.FIRE_LIMIT], S.RED_D)
 
 
 # --- smoke test ---------------------------------------------------------------------

@@ -7,10 +7,14 @@ const GLASS := Vector4(535.5 * F, 300.0 * F, 321.0 * F, 256.0 * F)
 const ACTIVE := Vector4(535.5 * F, 293.0 * F, 288.0 * F, 216.0 * F)
 const BARREL := 0.045
 const UI_SIZE := Vector2(640, 480)
+## How much CRT is on the picture: full glass, halfway, or a clean readable screen (F4).
+const CLARITY_STEPS := [1.0, 0.5, 0.0]
+const CLARITY_NAMES := ["CRT full", "CRT soft", "CRT off"]
 
 var ndos
 var power := 1.0
 var flicker := 1.0
+var clarity := 1.0
 var _mat: ShaderMaterial
 
 
@@ -38,6 +42,15 @@ func _process(_delta: float) -> void:
 	if _mat != null:
 		_mat.set_shader_parameter("power", power)
 		_mat.set_shader_parameter("flicker", flicker)
+		_mat.set_shader_parameter("clarity", clarity)
+
+
+## Debug/accessibility: steps through the CRT strength and returns the new step's name.
+func cycle_clarity() -> String:
+	var i: int = CLARITY_STEPS.find(clarity)
+	i = (i + 1) % CLARITY_STEPS.size()
+	clarity = CLARITY_STEPS[i]
+	return CLARITY_NAMES[i]
 
 
 ## Viewport point -> ND-OS point, or (-1, -1) outside the picture.

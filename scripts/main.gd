@@ -1,10 +1,14 @@
 extends Control
 ## Run flow: contract -> shift -> KONTUR report -> observation log -> night -> end card.
-## Debug keys: F2 = speed x1/x4, F3 = skip 60 s of the shift, F11 = fullscreen.
+## Debug keys: F2 = speed x1/x4, F3 = skip 60 s of the shift, F4 = CRT strength,
+## F11 = fullscreen.
 
 const Ui := preload("res://scripts/ui.gd")
 const NameEntry := preload("res://scripts/name_entry.gd")
 const Shift := preload("res://scripts/shift.gd")
+const CrtScreen := preload("res://scripts/crt_screen.gd")
+const NdStyle := preload("res://scripts/ndos/nd_style.gd")
+const BASE_SIZE := Vector2i(640, 360)   # logical viewport; the window is a whole multiple of it
 
 var fader: ColorRect
 var screen: Control
@@ -28,6 +32,8 @@ func _ready() -> void:
 			shots = preload("res://scripts/debug_shots.gd").new()
 			shots.dir = arg.trim_prefix("--shots=")
 			add_child(shots)
+	_setup_window()
+	NdStyle.set_scale(_screen_pixels_per_unit())
 	var bg := Ui.full_rect(ColorRect.new())
 	bg.color = Color.BLACK
 	add_child(bg)
@@ -38,6 +44,43 @@ func _ready() -> void:
 	debug_label = Ui.place(Ui.label("", 8, Ui.AMBER), Rect2(4, 348, 200, 12))
 	add_child(debug_label)
 	_start()
+
+
+## The game is drawn in 640x360 logical units and scaled to the window, so on a big
+## monitor it has to fill the screen: a 1280x720 window on a 1440p display halves the
+## size of every glyph on the CRT. Default is fullscreen; --windowed gives the largest
+## whole multiple of 640x360 that fits the screen instead.
+func _setup_window() -> void:
+	if DisplayServer.get_name() == "headless" or smoke or input_test != null:
+		return
+	if "--resolution" in OS.get_cmdline_args():
+		return
+	if "--windowed" in OS.get_cmdline_user_args():
+		_fit_window()
+		return
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+## Real pixels one ND-OS unit gets here: the CRT picture is only ~260 of the 360 logical
+## rows tall and holds 480 ND-OS rows, so the screen viewport needs more than 1:1 to stay
+## sharp. Fullscreen 1080p -> 1.6, 1440p -> 2.2, 4K -> 3.2. Read once at startup.
+func _screen_pixels_per_unit() -> float:
+	if DisplayServer.get_name() == "headless":
+		return 2.0
+	var h := float(DisplayServer.screen_get_size(DisplayServer.window_get_current_screen()).y)
+	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
+		h = minf(h, float(DisplayServer.window_get_size().y))
+	var picture_rows: float = 2.0 * CrtScreen.ACTIVE.w
+	return h / float(BASE_SIZE.y) * picture_rows / NdStyle.H
+
+
+func _fit_window() -> void:
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+	var k := maxi(1, mini(usable.size.x / BASE_SIZE.x, usable.size.y / BASE_SIZE.y))
+	var win := BASE_SIZE * k
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	DisplayServer.window_set_size(win)
+	DisplayServer.window_set_position(usable.position + (usable.size - win) / 2)
 
 
 func _input(event: InputEvent) -> void:
@@ -51,9 +94,14 @@ func _input(event: InputEvent) -> void:
 		KEY_F3:
 			if shift_node != null and is_instance_valid(shift_node):
 				shift_node.elapsed += 60.0
+		KEY_F4:
+			if shift_node != null and is_instance_valid(shift_node):
+				debug_label.text = shift_node.crt.cycle_clarity()
 		KEY_F11:
-			var fs := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fs else DisplayServer.WINDOW_MODE_FULLSCREEN)
+			if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+				_fit_window()
+			else:
+				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 
 func _set_screen(c: Control) -> void:
@@ -109,7 +157,8 @@ func _on_signed(player_name: String) -> void:
 			{"t": 13, "tab": 0, "name": "01a_hint_choose"},
 			{"t": 26, "tab": 0, "name": "01_echo"},
 			{"t": 41, "name": "01b_hint_eye"},
-			{"t": 84.3, "name": "02_kontur_check"},
+			{"t": 84.3, "name": "02_kontur_alert"},
+			{"t": 86.0, "tab": 1, "name": "02b_kontur_answer"},
 			{"t": 153, "tab": 0, "name": "02a_hint_feed"},
 			{"t": 200.4, "tab": 1, "name": "03_kontur"},
 			{"t": 320.3, "tab": 0, "details": true, "name": "04_echo_diff"},

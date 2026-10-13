@@ -911,13 +911,6 @@
    "text": "the power is out. turn around"
   },
   {
-   "id": "code",
-   "when": "code_check",
-   "until": "code_answered",
-   "target": "kontur_code",
-   "text": "type the code, then enter"
-  },
-  {
    "id": "question_open",
    "when": "question_elsewhere",
    "until": "question_answered",

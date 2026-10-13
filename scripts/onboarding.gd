@@ -64,8 +64,8 @@ func _holds(cond: String, step: Dictionary) -> bool:
 	var os = shift.ndos
 	var echo = shift.echo
 	var kontur = shift.kontur
-	var calm: bool = shift.power_on and not shift.facing_vent and not shift.turning and os.modal == null
-	var question: bool = kontur.active != null and String(kontur.active["kind"]) != "code"
+	var calm: bool = shift.power_on and not shift.facing_vent and not shift.turning
+	var question: bool = kontur.active != null
 	match cond:
 		"":
 			return false
@@ -82,10 +82,6 @@ func _holds(cond: String, step: Dictionary) -> bool:
 				if bool(d["opened"]):
 					return true
 			return false
-		"code_check":
-			return shift.power_on and os.modal != null
-		"code_answered":
-			return _shown_and_gone(step, os.modal == null)
 		"question_elsewhere":
 			return calm and question and os.active != 1
 		"question_here":

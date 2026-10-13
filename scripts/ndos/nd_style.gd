@@ -1,7 +1,6 @@
 extends RefCounted
-## ND-OS palette, fonts and screen geometry (logical 640x480 units, rendered at 2x).
+## ND-OS palette, fonts and screen geometry (logical 640x480 units).
 
-const K := 2.0                      # logical -> physical pixels inside the screen viewport
 const W := 640.0
 const H := 480.0
 const X0 := 45.0                    # app area (right of the launcher, under the panel)
@@ -9,7 +8,38 @@ const Y0 := 19.0
 const X1 := 640.0
 const Y1 := 480.0
 const LH := 11.2                    # terminal line height
-const MONO_PX := 15                 # physical font size of the terminal text
+const CW := 5.0                     # terminal column width; the glyphs are drawn a touch
+                                    # narrower (4.52), the grid is what the mockups use
+# The CRT rounds off the corners of the picture (crt.gdshader: se(s, 22)), and the top row
+# of the screen is where that bites: anything that has to stay readable up there lives
+# between SAFE_X and W - SAFE_X. The panel bar itself may be clipped, it is just a bar.
+const SAFE_X := 18.0
+
+# How many pixels one logical unit gets in the screen SubViewport. The CRT picture covers
+# only about half the window height, so a fixed 2x texture turns into a blur on a big
+# monitor; main.gd calls set_scale() at startup with what the glass actually gets.
+static var K := 2.0
+static var MONO_PX := 15            # terminal text, physical pixels
+static var UI_PX := 14              # panel text, 7 logical
+static var UI_PX_BIG := 16          # panel clock, 8 logical
+
+# Terminal font size per scale: exactly 7.5 * K, the only sizes where DejaVu Sans Mono
+# draws the same glyph advance per logical unit (4.52). Off-step sizes (K=3) round to a
+# different advance and silently widen every line by a tenth, so only even scales exist.
+const MONO_PX_BY_K := {2: 15, 4: 30, 6: 45}
+
+
+## wanted = pixels per logical unit the glass actually gets; rounds up to a usable scale.
+static func set_scale(wanted: float) -> void:
+	var k := 2
+	if wanted > 4.0:
+		k = 6
+	elif wanted > 2.0:
+		k = 4
+	K = float(k)
+	MONO_PX = int(MONO_PX_BY_K[k])
+	UI_PX = 7 * k
+	UI_PX_BIG = 8 * k
 
 # Terminal colors (approved mockups).
 const TBG := Color8(13, 13, 12)
