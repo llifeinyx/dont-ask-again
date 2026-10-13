@@ -1,0 +1,11 @@
+# Godot 4
+.godot/
+export/
+*.translation
+# OS / editors
+.DS_Store
+Thumbs.db
+*.swp
+# Python
+__pycache__/
+*.pyc
