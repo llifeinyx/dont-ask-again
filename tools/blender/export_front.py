@@ -80,6 +80,7 @@ def main() -> None:
 	references = os.path.join(args.out, "tests", "reference")
 	os.makedirs(assets, exist_ok=True)
 	os.makedirs(references, exist_ok=True)
+	samples = scene.cycles.samples
 	raw = tempfile.mkdtemp(prefix="export_front_")
 	try:
 		scene.render.use_compositing = True
@@ -94,7 +95,7 @@ def main() -> None:
 		write_reference(scene, assets, mug_rect, strengths, view_size, os.path.join(references, f"front_{state}.png"))
 	bake_lut(scene, os.path.join(assets, LUT_FILE))
 	write_manifest(os.path.join(assets, "manifest.tres"), frame_size, view_size, mug_rect, ndos_visible,
-		scene, args.preview)
+		samples, scene, args.preview)
 	log(f"Glass UV map {GLASS_UV_MAP} spans u {uv_range[0]:.4f}..{uv_range[1]:.4f}, v {uv_range[2]:.4f}..{uv_range[3]:.4f}")
 	log(f"Done: {args.out}")
 
@@ -510,7 +511,7 @@ def apply_lut(lut: np.ndarray, linear: np.ndarray) -> np.ndarray:
 
 
 def write_manifest(path: str, frame_size: tuple, view_size: tuple, mug_rect: tuple, ndos_visible: tuple,
-		scene: bpy.types.Scene, preview: bool) -> None:
+		samples: int, scene: bpy.types.Scene, preview: bool) -> None:
 	source = os.path.basename(bpy.data.filepath) or "unsaved"
 	stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 	lines = [
@@ -526,7 +527,7 @@ def write_manifest(path: str, frame_size: tuple, view_size: tuple, mug_rect: tup
 		"exposure = %r" % float(scene.view_settings.exposure),
 		"ndos_visible = Rect2(%r, %r, %r, %r)" % ndos_visible,
 		"preview = %s" % ("true" if preview else "false"),
-		"samples = %d" % scene.cycles.samples,
+		"samples = %d" % samples,
 		'source = "%s, Blender %s, %s"' % (source, bpy.app.version_string, stamp),
 		"",
 	]
