@@ -3,8 +3,9 @@ extends Node
 ##   godot --path . res://tests/shots/front_shots.tscn -- --shots=<dir>
 ## Renders at the export's view size, so a shot lines up pixel for pixel with tests/reference.
 
-## How far into the flicker to look for its darkest moment, in seconds.
+## How far into the flicker to look for its darkest moment, and in what steps, in seconds.
 const FLICKER_SEARCH: float = 5.0
+const FLICKER_SEARCH_STEP: float = 0.01
 ## Frames to let the renderer settle before a screenshot.
 const SETTLE_FRAMES: int = 3
 
@@ -49,5 +50,5 @@ static func _darkest_time(pattern: FlickerPattern) -> float:
 	while time < FLICKER_SEARCH:
 		if pattern.sample(time) < pattern.sample(darkest):
 			darkest = time
-		time += 0.01
+		time += FLICKER_SEARCH_STEP
 	return darkest

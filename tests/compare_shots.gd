@@ -5,19 +5,35 @@ extends SceneTree
 ##   shot must match it closely at full size.
 ## - tests/golden/<shot>.png are approved screenshots at quarter size; they catch any change of look.
 ##   --update-golden replaces them when a change is meant. Commit the new ones in the same change.
-## A heat map <shot>_diff.png is saved next to every shot that fails.
+## Every reference and golden needs a shot of the same name, so a dropped shot cannot pass unnoticed.
+## A heat map <shot>_reference_diff.png or <shot>_golden_diff.png is saved next to a shot that fails.
 
 const REFERENCE_DIR := "res://tests/reference"
 const GOLDEN_DIR := "res://tests/golden"
 ## Goldens are halved this many times, which averages away noise and keeps the files small.
 const GOLDEN_HALVINGS: int = 2
-## Allowed differences in steps of 255: the mean over all channels and the 99.9th percentile.
-const REFERENCE_MEAN: float = 0.75
-const REFERENCE_P999: int = 6
-const GOLDEN_MEAN: float = 0.5
-const GOLDEN_P999: int = 4
 ## Heat map brightness per step of difference.
 const HEAT_GAIN: int = 16
+
+
+## Allowed differences in steps of 255: the mean over all channels, the 99.9th percentile, and how many
+## pixels may be off by more than a step. The last one catches small parts of the frame (the indicator,
+## the mug) that hardly move the mean; a few such pixels come from BC6H around bright spots.
+class Limits:
+	var mean: float
+	var p999: int
+	var outlier_step: int
+	var outliers: int
+
+	func _init(mean_limit: float, p999_limit: int, step: int, count: int) -> void:
+		mean = mean_limit
+		p999 = p999_limit
+		outlier_step = step
+		outliers = count
+
+
+var _reference_limits := Limits.new(0.75, 6, 16, 32)
+var _golden_limits := Limits.new(0.5, 4, 8, 8)
 
 
 func _init() -> void:
@@ -28,11 +44,7 @@ func _init() -> void:
 			shots_dir = arg.trim_prefix("--shots=")
 		elif arg == "--update-golden":
 			update = true
-	var shots: PackedStringArray = []
-	for file: String in DirAccess.get_files_at(shots_dir):
-		if file.ends_with(".png") and not file.ends_with("_diff.png"):
-			shots.append(file)
-	shots.sort()
+	var shots: PackedStringArray = _pngs(shots_dir)
 	var failed: int = 0
 	for file: String in shots:
 		var problems: PackedStringArray = _check(shots_dir, file, update)
@@ -41,19 +53,33 @@ func _init() -> void:
 		else:
 			failed += 1
 			print("FAIL ", file, ": ", "; ".join(problems))
+	for dir: String in [REFERENCE_DIR, GOLDEN_DIR]:
+		for file: String in _pngs(ProjectSettings.globalize_path(dir)):
+			if not shots.has(file):
+				failed += 1
+				print("FAIL ", file, ": in %s but no shot has this name; shoot it or delete it" % dir)
 	print("SHOTS: %d checked, %d failed" % [shots.size(), failed])
 	quit(1 if failed > 0 or shots.is_empty() else 0)
+
+
+static func _pngs(dir: String) -> PackedStringArray:
+	var files: PackedStringArray = []
+	for file: String in DirAccess.get_files_at(dir):
+		if file.ends_with(".png") and not file.ends_with("_diff.png"):
+			files.append(file)
+	files.sort()
+	return files
 
 
 func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 	var problems: PackedStringArray = []
 	var shot := Image.load_from_file(shots_dir.path_join(file))
 	shot.convert(Image.FORMAT_RGB8)
-	var heat_path: String = shots_dir.path_join(file.get_basename() + "_diff.png")
+	var heat_path: String = shots_dir.path_join(file.get_basename() + "_%s_diff.png")
 
 	var reference_path: String = ProjectSettings.globalize_path(REFERENCE_DIR.path_join(file))
 	if FileAccess.file_exists(reference_path):
-		var problem: String = _compare(shot, Image.load_from_file(reference_path), REFERENCE_MEAN, REFERENCE_P999, heat_path)
+		var problem: String = _compare(shot, Image.load_from_file(reference_path), _reference_limits, heat_path % "reference")
 		if not problem.is_empty():
 			problems.append("against Blender: " + problem)
 
@@ -69,14 +95,14 @@ func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 	elif not FileAccess.file_exists(golden_path):
 		problems.append("no golden yet; check the shot and run with --update-golden")
 	else:
-		var problem: String = _compare(small, Image.load_from_file(golden_path), GOLDEN_MEAN, GOLDEN_P999, heat_path)
+		var problem: String = _compare(small, Image.load_from_file(golden_path), _golden_limits, heat_path % "golden")
 		if not problem.is_empty():
 			problems.append("against golden: " + problem)
 	return problems
 
 
 ## Empty when the images match within the limits; otherwise what differs. Saves a heat map on failure.
-func _compare(actual: Image, expected: Image, mean_limit: float, p999_limit: int, heat_path: String) -> String:
+func _compare(actual: Image, expected: Image, limits: Limits, heat_path: String) -> String:
 	expected.convert(Image.FORMAT_RGB8)
 	if actual.get_size() != expected.get_size():
 		return "size %s, expected %s" % [actual.get_size(), expected.get_size()]
@@ -85,16 +111,22 @@ func _compare(actual: Image, expected: Image, mean_limit: float, p999_limit: int
 	var histogram := PackedInt64Array()
 	histogram.resize(256)
 	var total: int = 0
-	for i: int in a.size():
-		var difference: int = absi(a[i] - b[i])
-		histogram[difference] += 1
-		total += difference
+	var outliers: int = 0
+	for pixel: int in actual.get_width() * actual.get_height():
+		var worst: int = 0
+		for i: int in range(pixel * 3, pixel * 3 + 3):
+			var difference: int = absi(a[i] - b[i])
+			histogram[difference] += 1
+			total += difference
+			worst = maxi(worst, difference)
+		if worst > limits.outlier_step:
+			outliers += 1
 	var mean: float = float(total) / a.size()
 	var p999: int = _percentile(histogram, a.size(), 0.999)
-	var summary: String = "mean %.2f (limit %.2f), 99.9%% within %d (limit %d), max %d" % [
-		mean, mean_limit, p999, p999_limit, _percentile(histogram, a.size(), 1.0)]
+	var summary: String = "mean %.2f (limit %.2f), 99.9%% within %d (limit %d), %d pixels over %d (limit %d), max %d" % [
+		mean, limits.mean, p999, limits.p999, outliers, limits.outlier_step, limits.outliers, _percentile(histogram, a.size(), 1.0)]
 	print("  ", heat_path.get_file().trim_suffix("_diff.png"), ": ", summary)
-	if mean <= mean_limit and p999 <= p999_limit:
+	if mean <= limits.mean and p999 <= limits.p999 and outliers <= limits.outliers:
 		return ""
 	_save_heat_map(a, b, actual.get_size(), heat_path)
 	return summary

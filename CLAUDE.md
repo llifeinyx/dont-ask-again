@@ -40,8 +40,10 @@ godot --path . -- --windowed       # play in a window
 - The boot step renders at 2560×1440 and saves `shots/boot.png`.
 - Screenshot scenes in `tests/shots/` save fixed states (lamp on, flickering, off). `tests/compare_shots.gd`
   compares each with `tests/reference/` (from Blender, full size) when one exists and with `tests/golden/`
-  (quarter size). A failing shot gets a `_diff.png` heat map. When a change of look is meant, run
-  `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.
+  (quarter size). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
+  small part such as the indicator or the mug cannot break unnoticed. Every reference and golden needs a
+  shot. A failing shot gets a `_reference_diff.png` or `_golden_diff.png` heat map. When a change of look
+  is meant, run `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.
 - Launch flags go after `--`: `--windowed`, `--frames=N` (quit after N frames), `--shots=<dir>`
   (save screenshots of fixed states, then quit).
 - Keys: F11 fullscreen/window. Debug builds only: F3 frame time overlay, F5 lamp mode (normal, flicker, off).
@@ -90,7 +92,8 @@ blender -b crt_terminal_room.blend --python tools/blender/export_front.py -- --o
 ```
 
 It renders both view layers, writes everything listed in its docstring under `<dir>` laid out like the
-repo, and never saves the .blend. Always run `--preview` first (25%, 32 samples) and wait for Zhan's
+repo, and never saves the .blend. It checks the scene before rendering, refuses to run without `-b`,
+moves files into `<dir>` only when the whole export worked, and exits with 1 on any error. Always run `--preview` first (25%, 32 samples) and wait for Zhan's
 go before the full export. A full export goes straight into a clone of the repo (`--out <clone>`), then
 gets committed with Git LFS from that PC. After a new export, run the checks and update the goldens.
 
@@ -129,7 +132,9 @@ gets committed with Git LFS from that PC. After a new export, run the checks and
 - The glass UV pass is 32-bit float, stored as (u·m, v·m, m) with a top-left origin; divide by m.
   16-bit is 12× less precise. It stays lossless; light layers are compressed to BC6H in VRAM.
 - Tonemapping is a 65³ 3D LUT baked from Blender AgX + "AgX - Punchy" with a log2 shaper over
-  [-12.47393, 12.5260688117]. Godot's built-in AgX is ~34/255 off and is not used.
+  [-12.47393, 12.5260688117]. Godot's built-in AgX is ~34/255 off and is not used. The LUT is a raw
+  `.bin` read with `FileAccess`, so an export preset must list `assets/front/*.bin` in its non-resource
+  filter.
 - The test reference is the exported layers summed and run through Blender AgX, not Cycles' Combined.
 - ND-OS renders in a 1280×960 SubViewport; a 1×1 SubViewport gives its average colour for the screen
   light layer. Clicks reach ND-OS through the same UV pass with `SubViewport.push_input(event, true)`.

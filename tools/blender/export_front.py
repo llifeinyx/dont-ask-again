@@ -14,7 +14,8 @@ Writes under <dir>, laid out like the repository:
                                       scene's view transform; the game's frame must match them
 
 --preview renders at 25% with 32 samples for a quick look before the full export.
-The .blend file is never saved.
+Files are moved into <dir> only when the whole export worked. The script refuses to run outside
+background mode (-b) and never saves the .blend file.
 """
 
 import argparse
@@ -23,6 +24,7 @@ import os
 import shutil
 import sys
 import tempfile
+import traceback
 
 import bpy
 import numpy as np
@@ -61,6 +63,8 @@ STATES = {
 
 
 def main() -> None:
+	if not bpy.app.background:
+		fail("run it with blender -b: the export changes the open scene, and a save would keep those changes")
 	args = parse_args()
 	scene = bpy.context.scene
 	problems = check_scene(scene)
@@ -76,11 +80,25 @@ def main() -> None:
 	if (frame_size[0] - view_size[0]) % 2 or (frame_size[1] - view_size[1]) % 2:
 		fail(f"Frame {frame_size} and view {view_size} leave an uneven margin")
 
-	assets = os.path.join(args.out, "assets", "front")
-	references = os.path.join(args.out, "tests", "reference")
-	os.makedirs(assets, exist_ok=True)
-	os.makedirs(references, exist_ok=True)
 	samples = scene.cycles.samples
+	os.makedirs(args.out, exist_ok=True)
+	# A failed run must not leave new layers beside an old manifest, so everything is written into a
+	# staging folder first and moved into <out> at the end.
+	stage = tempfile.mkdtemp(prefix=".export_front_", dir=args.out)
+	try:
+		export(scene, stage, percent, frame_size, view_size, samples, args.preview)
+		move_into(stage, args.out)
+	finally:
+		shutil.rmtree(stage, ignore_errors=True)
+	log(f"Done: {args.out}")
+
+
+def export(scene: bpy.types.Scene, out: str, percent: int, frame_size: tuple, view_size: tuple, samples: int,
+		preview: bool) -> None:
+	assets = os.path.join(out, "assets", "front")
+	references = os.path.join(out, "tests", "reference")
+	os.makedirs(assets)
+	os.makedirs(references)
 	raw = tempfile.mkdtemp(prefix="export_front_")
 	try:
 		scene.render.use_compositing = True
@@ -95,9 +113,16 @@ def main() -> None:
 		write_reference(scene, assets, mug_rect, strengths, view_size, os.path.join(references, f"front_{state}.png"))
 	bake_lut(scene, os.path.join(assets, LUT_FILE))
 	write_manifest(os.path.join(assets, "manifest.tres"), frame_size, view_size, mug_rect, ndos_visible,
-		samples, scene, args.preview)
+		samples, scene, preview)
 	log(f"Glass UV map {GLASS_UV_MAP} spans u {uv_range[0]:.4f}..{uv_range[1]:.4f}, v {uv_range[2]:.4f}..{uv_range[3]:.4f}")
-	log(f"Done: {args.out}")
+
+
+def move_into(stage: str, out: str) -> None:
+	for directory, _, files in os.walk(stage):
+		target = os.path.join(out, os.path.relpath(directory, stage))
+		os.makedirs(target, exist_ok=True)
+		for name in files:
+			os.replace(os.path.join(directory, name), os.path.join(target, name))
 
 
 def parse_args() -> argparse.Namespace:
@@ -125,6 +150,8 @@ def check_scene(scene: bpy.types.Scene) -> list:
 		problems.append("colour management must be AgX with the 'AgX - Punchy' look, gamma 1, no curves")
 	if scene.display_settings.display_device != "sRGB":
 		problems.append("display device must be sRGB")
+	if scene.render.image_settings.color_management != "FOLLOW_SCENE":
+		problems.append("output colour management must follow the scene, the LUT and references are saved with it")
 	if not scene.render.film_transparent:
 		problems.append("film must be transparent, the mug layer needs alpha")
 	for name in (MAIN_LAYER, MUG_LAYER):
@@ -142,6 +169,8 @@ def check_scene(scene: bpy.types.Scene) -> list:
 		problems.append(f"mesh object {GLASS_OBJECT} is missing")
 	elif GLASS_UV_MAP not in glass.data.uv_layers:
 		problems.append(f"{GLASS_OBJECT} has no UV map {GLASS_UV_MAP}")
+	else:
+		problems += uv_orientation_problems(glass)
 	if bpy.data.materials.get(GLASS_MATERIAL) is None:
 		problems.append(f"material {GLASS_MATERIAL} is missing")
 	else:
@@ -163,7 +192,6 @@ def add_glass_uv_aov(scene: bpy.types.Scene) -> tuple:
 	uvs = uvs.reshape(-1, 2)
 	u_min, v_min = uvs.min(0)
 	u_max, v_max = uvs.max(0)
-	check_uv_orientation(glass, uv_layer)
 
 	layer = scene.view_layers[MAIN_LAYER]
 	if UV_AOV not in layer.aovs:
@@ -200,9 +228,10 @@ def map_range(tree, socket, from_min: float, from_max: float, to_min: float, to_
 	return node.outputs["Result"]
 
 
-def check_uv_orientation(glass: bpy.types.Object, uv_layer) -> None:
+def uv_orientation_problems(glass: bpy.types.Object) -> list:
 	"""The glass faces the camera, so screen left is -X and up is +Z; UV u must grow right, v up."""
 	mesh = glass.data
+	uv_layer = mesh.uv_layers[GLASS_UV_MAP]
 	world = glass.matrix_world
 	positions = [world @ vertex.co for vertex in mesh.vertices]
 	uv_at = {}
@@ -211,8 +240,9 @@ def check_uv_orientation(glass: bpy.types.Object, uv_layer) -> None:
 	top_left = min(range(len(positions)), key=lambda i: positions[i].x - positions[i].z)
 	bottom_right = min(range(len(positions)), key=lambda i: -positions[i].x + positions[i].z)
 	a, b = uv_at[top_left], uv_at[bottom_right]
-	if not (a.x < b.x and a.y > b.y):
-		fail(f"{GLASS_UV_MAP} is not oriented u right, v up: top-left {tuple(a)}, bottom-right {tuple(b)}")
+	if a.x < b.x and a.y > b.y:
+		return []
+	return [f"{GLASS_UV_MAP} is not oriented u right, v up: top-left {tuple(a)}, bottom-right {tuple(b)}"]
 
 
 def render_layers(scene: bpy.types.Scene, raw: str, scale: float) -> None:
@@ -535,4 +565,9 @@ def write_manifest(path: str, frame_size: tuple, view_size: tuple, mug_rect: tup
 		file.write("\n".join(lines))
 
 
-main()
+try:
+	main()
+except Exception:
+	# Blender exits with 0 after an uncaught error in a --python script, which would look like success.
+	traceback.print_exc()
+	fail("stopped on the error above")

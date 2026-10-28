@@ -3,6 +3,12 @@ extends Resource
 ## A failing lamp: a faint steady waver with sudden short dips. sample() is deterministic, so a
 ## screenshot at a given time is always the same.
 
+## Primes that keep the random numbers of different seeds and streams apart.
+const SEED_STRIDE: int = 1000003
+const STREAM_STRIDE: int = 7919
+## rand_from_seed() gives a 32-bit unsigned number; dividing by this maps it to [0, 1).
+const RANDOM_RANGE: float = 4294967296.0
+
 ## How far the waver pulls the lamp down, as a share of its brightness.
 @export_range(0.0, 1.0) var waver_depth: float = 0.08
 ## Waver changes per second.
@@ -34,4 +40,4 @@ func _smooth_noise(x: float) -> float:
 
 ## Repeatable random number in [0, 1) for an integer and a stream.
 func _random(n: int, stream: int) -> float:
-	return float(rand_from_seed(noise_seed * 1000003 + stream * 7919 + n)[0]) / 4294967296.0
+	return float(rand_from_seed(noise_seed * SEED_STRIDE + stream * STREAM_STRIDE + n)[0]) / RANDOM_RANGE

@@ -60,7 +60,11 @@ run front_shots xvfb-run -a -s "-screen 0 1280x720x24" \
 	-- --shots="$OUT/shots/front"
 
 echo "== compare screenshots"
+compare_flags=()
+if [[ "${UPDATE_GOLDEN:-0}" == 1 ]]; then
+	compare_flags=(--update-golden)
+fi
 run compare "$GODOT" --headless --path . --script res://tests/compare_shots.gd \
-	-- --shots="$OUT/shots/front" ${UPDATE_GOLDEN:+--update-golden}
+	-- --shots="$OUT/shots/front" "${compare_flags[@]}"
 
 echo "ALL CHECKS PASSED (logs and screenshots in $OUT)"

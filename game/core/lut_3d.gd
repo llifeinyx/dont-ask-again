@@ -8,6 +8,8 @@ const HEADER_BYTES: int = 12
 var size: int
 var lo: float
 var hi: float
+## One image per blue step; x is red, y is green.
+var slices: Array[Image] = []
 var texture: ImageTexture3D
 
 
@@ -25,11 +27,10 @@ static func load_file(path: String) -> Lut3D:
 	if lut.size < 2 or lut.hi <= lut.lo or file.get_length() != HEADER_BYTES + slice_bytes * lut.size:
 		push_error("LUT %s is malformed" % path)
 		return null
-	var slices: Array[Image] = []
 	for b: int in lut.size:
-		slices.append(Image.create_from_data(lut.size, lut.size, false, Image.FORMAT_RGBF, file.get_buffer(slice_bytes)))
+		lut.slices.append(Image.create_from_data(lut.size, lut.size, false, Image.FORMAT_RGBF, file.get_buffer(slice_bytes)))
 	lut.texture = ImageTexture3D.new()
-	lut.texture.create(Image.FORMAT_RGBF, lut.size, lut.size, lut.size, false, slices)
+	lut.texture.create(Image.FORMAT_RGBF, lut.size, lut.size, lut.size, false, lut.slices)
 	return lut
 
 
