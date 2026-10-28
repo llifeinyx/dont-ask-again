@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="LightingPreset" format=3]
+
+[ext_resource type="Script" path="res://game/front/lighting_preset.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+lamp = 0.0
