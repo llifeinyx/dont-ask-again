@@ -11,5 +11,6 @@ func check(condition: bool, message: String) -> void:
 
 
 func check_eq(actual: Variant, expected: Variant, message: String) -> void:
-	if actual != expected:
+	# Compare types first: == between some different types is a runtime error, not false.
+	if typeof(actual) != typeof(expected) or actual != expected:
 		failures.append("%s: expected %s, got %s" % [message, var_to_str(expected), var_to_str(actual)])

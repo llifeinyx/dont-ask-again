@@ -22,14 +22,19 @@ running ND-OS; the frame "front" is the terminal on a desk, built from pre-rende
 ## Run and check
 
 ```bash
-tools/ci/install_godot.sh          # pinned Godot 4.7.2 into ~/.cache/godot, linked as `godot`
-tools/check.sh                     # import, unit tests, boot on Forward+ with a screenshot
+tools/ci/install_godot.sh          # pinned Godot 4.7.2 into ~/.cache/godot, linked as ~/.local/bin/godot
+tools/check.sh                     # import, compile everything, unit tests, boot on Forward+ with a screenshot
 godot --path . -- --windowed       # play in a window
 ```
 
-- `tools/check.sh` must pass before every commit; CI runs the same script on every push and PR.
-  Logs and screenshots go to `$CHECK_OUT` (default `/tmp/dont-ask-again-check`).
-- The boot step needs `xvfb-run` and a Vulkan driver. Without a GPU, `mesa-vulkan-drivers` gives
+- `tools/check.sh` must pass before every commit; CI runs the same script on every pull request and on
+  `main`, then fails if the checks left uncommitted files (usually a missing `.uid`). Logs and screenshots
+  go to `$CHECK_OUT` (default `/tmp/dont-ask-again-check`). Each Godot run is killed after
+  `$CHECK_TIMEOUT` seconds (default 300).
+- The compile step loads every `.gd`, `.tscn` and `.tres`, so a file nothing uses yet still has to compile.
+  A unit test fails on a failed check and on any error it logs, including runtime errors.
+- The boot step renders at 2560×1440 on a virtual display and saves `shots/boot.png`. It needs `xvfb-run`
+  and a Vulkan driver. Without a GPU, `mesa-vulkan-drivers` gives
   lavapipe, which is enough for Forward+ screenshots but says nothing about speed.
 - Launch flags go after `--`: `--windowed`, `--frames=N` (quit after N frames), `--shots=<dir>`
   (save screenshots of fixed states, then quit).
@@ -47,6 +52,8 @@ game/
 tests/
   test_case.gd     base class for unit tests
   run_tests.gd     runner: godot --headless --path . --script res://tests/run_tests.gd
+  compile_all.gd   loads every script and scene; fails on any error
+  error_log.gd     Logger that collects errors for both runners
   unit/            test_*.gd, one file per script under test
 tools/
   check.sh         every check, locally and on CI
@@ -64,7 +71,9 @@ Coming with the next milestones (create a folder when it gets its first file):
 - Scenes describe structure, scripts describe behaviour. Every part (front without ND-OS, ND-OS without
   glass) is its own scene that runs on its own. Parts talk through signals and the lighting node, never
   through each other's children.
-- Strict GDScript: untyped declarations and unsafe access, casts and calls are errors in `project.godot`.
+- Strict GDScript: in `project.godot` every warning Godot enables by default is an error, and so are
+  untyped declarations and unsafe access, casts and calls. Don't silence one with `@warning_ignore`
+  unless there is no typed way to write the code, and say why in a comment.
   Give every variable, parameter and return a type; when a value comes from a `Variant` (dictionaries,
   `get()`, signals), declare the variable with an explicit type, not `:=`.
 - ND-OS colours, fonts and spacing live in the theme and one tokens file that mirrors the Figma
@@ -77,7 +86,8 @@ Coming with the next milestones (create a folder when it gets its first file):
 - Debug-only code checks `OS.is_debug_build()` and never ships in release.
 - snake_case for files, functions and variables, PascalCase for classes and nodes. Comments only where
   the code doesn't explain itself.
-- Unit tests extend `TestCase`, live in `tests/unit/test_<name>.gd` and use `check` / `check_eq`.
+- Unit tests extend `TestCase`, live in `tests/unit/test_<name>.gd`, take no arguments and use `check` /
+  `check_eq` (`check_eq` also compares types, so `1` and `1.0` differ).
   Cover the maths: coordinate mapping, layer sums, presets.
 - Commit the `.uid` files Godot creates next to scripts. Never commit `.godot/` or builds.
 

@@ -23,19 +23,20 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_fullscreen"):
-		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		if get_window().mode == Window.MODE_FULLSCREEN:
 			_enter_windowed()
 		else:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+			get_window().mode = Window.MODE_FULLSCREEN
 		get_viewport().set_input_as_handled()
 
 
+# Goes through the Window node, not DisplayServer, so the root viewport follows the new size.
 func _enter_windowed() -> void:
-	var screen: Rect2i = DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
-	var size: Vector2i = ScreenFit.windowed_size(screen.size)
-	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-	DisplayServer.window_set_size(size)
-	DisplayServer.window_set_position(screen.position + (screen.size - size) / 2)
+	var window: Window = get_window()
+	var screen: Rect2i = DisplayServer.screen_get_usable_rect(window.current_screen)
+	window.mode = Window.MODE_WINDOWED
+	window.size = ScreenFit.windowed_size(screen.size)
+	window.move_to_center()
 
 
 func _save_shots() -> void:

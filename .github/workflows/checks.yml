@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   checks:
@@ -18,16 +19,26 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/godot
-          key: godot-4.7.2-stable-linux
+          key: godot-${{ hashFiles('tools/ci/install_godot.sh') }}
 
       - name: Install Godot, Xvfb and a software Vulkan driver
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q --no-install-recommends mesa-vulkan-drivers xvfb xauth
           tools/ci/install_godot.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Checks
         run: CHECK_OUT="$RUNNER_TEMP/check" tools/check.sh
+
+      # Godot writes a .uid next to every new script; a missing one shows up here.
+      - name: Nothing generated is left uncommitted
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git status --porcelain
+            echo "Commit these files (or ignore them in .gitignore)."
+            exit 1
+          fi
 
       - name: Keep logs and screenshots
         if: always()

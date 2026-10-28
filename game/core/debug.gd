@@ -1,12 +1,13 @@
 extends CanvasLayer
-## Debug overlay (F3): frames per second and frame time. Removes itself in release builds.
+## Debug overlay (F3): frames per second and frame time. Does nothing in release builds; it stays in the
+## tree there so the Debug autoload is always a valid node.
 
 var _label: Label
 
 
 func _ready() -> void:
 	if not OS.is_debug_build():
-		queue_free()
+		process_mode = Node.PROCESS_MODE_DISABLED
 		return
 	layer = 128
 	visible = false
