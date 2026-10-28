@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Every check that must pass before a commit and on CI: import, compile everything, unit tests,
 # boot with a screenshot, screenshots of fixed states compared with Blender and with approved goldens.
-# UPDATE_GOLDEN=1 replaces the goldens with the new screenshots instead of comparing. Needs `godot` on the PATH (tools/ci/install_godot.sh); the boot step needs
-# xvfb and a Vulkan driver (mesa-vulkan-drivers gives a software one).
+# UPDATE_GOLDEN=1 replaces the goldens with the new screenshots instead of comparing.
+# Needs `godot` on the PATH (tools/ci/install_godot.sh); the screenshot steps need xvfb and a Vulkan
+# driver (mesa-vulkan-drivers gives a software one).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,7 +37,10 @@ run() {
 }
 
 echo "== import"
-run import "$GODOT" --headless --path . --import
+# Not headless: with a rendering device Godot compresses the light layers to BC6H on the GPU in seconds;
+# headless falls back to the CPU and takes over ten minutes.
+run import xvfb-run -a -s "-screen 0 1280x720x24" \
+	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --import
 
 echo "== compile every script and scene"
 run compile "$GODOT" --headless --path . --script res://tests/compile_all.gd

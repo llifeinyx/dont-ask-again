@@ -12,8 +12,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      # LFS downloads count against the repository's monthly bandwidth, so keep the objects between runs.
+      - name: Name the LFS cache after the objects it holds
+        id: lfs
+        run: echo "key=lfs-$(git lfs ls-files --long | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache LFS objects
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: ${{ steps.lfs.outputs.key }}
+
+      - name: Check out LFS files
+        run: |
+          git lfs install --local
+          git lfs pull
 
       - name: Cache Godot
         uses: actions/cache@v4

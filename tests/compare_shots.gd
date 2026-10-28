@@ -62,6 +62,7 @@ func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 		small.shrink_x2()
 	var golden_path: String = ProjectSettings.globalize_path(GOLDEN_DIR.path_join(file))
 	if update:
+		DirAccess.make_dir_recursive_absolute(golden_path.get_base_dir())
 		var error: Error = small.save_png(golden_path)
 		if error != OK:
 			problems.append("cannot write golden: " + error_string(error))

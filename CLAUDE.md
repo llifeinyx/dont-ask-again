@@ -33,9 +33,11 @@ godot --path . -- --windowed       # play in a window
   `$CHECK_TIMEOUT` seconds (default 300).
 - The compile step loads every `.gd`, `.tscn` and `.tres`, so a file nothing uses yet still has to compile.
   A unit test fails on a failed check and on any error it logs, including runtime errors.
-- The boot step renders at 2560×1440 on a virtual display and saves `shots/boot.png`. It needs `xvfb-run`
-  and a Vulkan driver. Without a GPU, `mesa-vulkan-drivers` gives
-  lavapipe, which is enough for Forward+ screenshots but says nothing about speed.
+- The import, boot and screenshot steps run on a virtual display (`xvfb-run`) with a Vulkan driver. Without
+  a GPU, `mesa-vulkan-drivers` gives lavapipe, which is enough for Forward+ screenshots but says nothing
+  about speed. Import is not headless on purpose: with a rendering device Godot compresses the light layers
+  to BC6H on the GPU in seconds, while `--headless` falls back to the CPU and takes over ten minutes.
+- The boot step renders at 2560×1440 and saves `shots/boot.png`.
 - Screenshot scenes in `tests/shots/` save fixed states (lamp on, flickering, off). `tests/compare_shots.gd`
   compares each with `tests/reference/` (from Blender, full size) when one exists and with `tests/golden/`
   (quarter size). A failing shot gets a `_diff.png` heat map. When a change of look is meant, run
@@ -67,7 +69,7 @@ tests/
   unit/            test_*.gd, one file per script under test
   shots/           scenes that save screenshots of fixed states
   reference/       frames from Blender the game must match (not imported by Godot)
-  golden/          approved screenshots at quarter size
+  golden/          approved screenshots at quarter size (not imported by Godot)
 tools/
   check.sh         every check, locally and on CI
   ci/              CI helpers
