@@ -1,0 +1,37 @@
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Godot
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/godot
+          key: godot-4.7.2-stable-linux
+
+      - name: Install Godot, Xvfb and a software Vulkan driver
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends mesa-vulkan-drivers xvfb xauth
+          tools/ci/install_godot.sh
+
+      - name: Checks
+        run: CHECK_OUT="$RUNNER_TEMP/check" tools/check.sh
+
+      - name: Keep logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-output
+          path: ${{ runner.temp }}/check
