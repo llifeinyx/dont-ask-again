@@ -45,6 +45,8 @@ MUG_PAD_PX = 8
 MUG_EMPTY = 0.5 / 255.0
 PREVIEW_PERCENT = 25
 PREVIEW_SAMPLES = 32
+# The glass UV pass needs only camera hits; this many samples give smooth edge coverage.
+UV_SAMPLES = 64
 
 LUT_SIZE = 65
 # log2 range of the LUT shaper, the same as Blender's AgX input range.
@@ -80,11 +82,9 @@ def main() -> None:
 	os.makedirs(references, exist_ok=True)
 	raw = tempfile.mkdtemp(prefix="export_front_")
 	try:
-		uv_range = add_glass_uv_aov(scene)
-		build_compositor(scene, raw, percent / 100.0)
-		log(f"Rendering {frame_size[0]}x{frame_size[1]}, {scene.cycles.samples} samples")
 		scene.render.use_compositing = True
-		bpy.ops.render.render(write_still=False)
+		render_layers(scene, raw, percent / 100.0)
+		uv_range = render_glass_uv(scene, raw)
 		mug_rect = write_layers(scene, raw, assets)
 	finally:
 		shutil.rmtree(raw, ignore_errors=True)
@@ -214,18 +214,73 @@ def check_uv_orientation(glass: bpy.types.Object, uv_layer) -> None:
 		fail(f"{GLASS_UV_MAP} is not oriented u right, v up: top-left {tuple(a)}, bottom-right {tuple(b)}")
 
 
-def build_compositor(scene: bpy.types.Scene, raw: str, scale: float) -> None:
-	"""A fresh compositor tree that writes every pass as 32-bit EXR into raw; the scene's own tree is
-	left alone and nothing is saved."""
-	tree = bpy.data.node_groups.new("export_front", "CompositorNodeTree")
-	tree.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
-	scene.compositing_node_group = tree
-
+def render_layers(scene: bpy.types.Scene, raw: str, scale: float) -> None:
+	"""Renders both view layers with the scene's own settings and writes every light group pass."""
+	tree, files = new_compositor(scene, raw)
 	main = render_layer(tree, scene, MAIN_LAYER)
 	mug = render_layer(tree, scene, MUG_LAYER)
-	group_output = tree.nodes.new("NodeGroupOutput")
-	tree.links.new(main.outputs["Image"], group_output.inputs[0])
+	tree.links.new(main.outputs["Image"], tree.nodes["Group Output"].inputs[0])
+	for group in GROUPS:
+		write_pass(tree, files, denoise(tree, main, group), f"main_{group}")
+		write_pass(tree, files, blur(tree, denoise(tree, mug, group), MUG_BLUR_PX * scale), f"mug_{group}")
+	write_pass(tree, files, blur(tree, mug.outputs["Alpha"], MUG_BLUR_PX * scale), "mug_alpha")
+	log(f"Rendering the light layers, {scene.cycles.samples} samples")
+	bpy.ops.render.render(write_still=False)
 
+
+def render_glass_uv(scene: bpy.types.Scene, raw: str) -> tuple:
+	"""A second, quick render of the glass UV pass alone. Volumes are hidden: the camera sits inside the
+	room haze, which scatters part of the rays before they reach the glass, and then the pass would no
+	longer hold the glass coverage. Returns the UV map's range."""
+	uv_range = add_glass_uv_aov(scene)
+	log(f"Hidden for the glass UV pass: {hide_volumes(scene) or 'nothing'}")
+	scene.view_layers[MUG_LAYER].use = False
+	scene.cycles.samples = UV_SAMPLES
+	scene.cycles.use_adaptive_sampling = False
+	scene.cycles.max_bounces = 0
+	tree, files = new_compositor(scene, raw)
+	layer = render_layer(tree, scene, MAIN_LAYER)
+	tree.links.new(layer.outputs["Image"], tree.nodes["Group Output"].inputs[0])
+	write_pass(tree, files, layer.outputs[UV_AOV], "glass_uv")
+	log(f"Rendering the glass UV pass, {UV_SAMPLES} samples")
+	bpy.ops.render.render(write_still=False)
+	return uv_range
+
+
+def hide_volumes(scene: bpy.types.Scene) -> list:
+	"""Hides from render every object that is only a volume, and the world's volume. Returns their names."""
+	hidden = []
+	for obj in scene.objects:
+		if not obj.hide_render and (obj.type == "VOLUME" or (obj.type == "MESH" and is_volume_only(obj))):
+			obj.hide_render = True
+			hidden.append(obj.name)
+	if scene.world and scene.world.node_tree:
+		output = scene.world.node_tree.get_output_node("CYCLES")
+		if output and output.inputs["Volume"].is_linked:
+			for link in list(output.inputs["Volume"].links):
+				scene.world.node_tree.links.remove(link)
+			hidden.append(f"world {scene.world.name}")
+	return hidden
+
+
+def is_volume_only(obj: bpy.types.Object) -> bool:
+	materials = [slot.material for slot in obj.material_slots if slot.material]
+	if not materials:
+		return False
+	for material in materials:
+		output = material.node_tree.get_output_node("CYCLES") if material.node_tree else None
+		if output is None or output.inputs["Surface"].is_linked or not output.inputs["Volume"].is_linked:
+			return False
+	return True
+
+
+def new_compositor(scene: bpy.types.Scene, raw: str) -> tuple:
+	"""A fresh compositor tree, in use from now on, with a node that writes 32-bit EXRs into raw. The
+	scene's own tree is left alone and nothing is saved."""
+	tree = bpy.data.node_groups.new("export_front", "CompositorNodeTree")
+	tree.interface.new_socket("Image", in_out="OUTPUT", socket_type="NodeSocketColor")
+	tree.nodes.new("NodeGroupOutput")
+	scene.compositing_node_group = tree
 	files = tree.nodes.new("CompositorNodeOutputFile")
 	files.directory = raw
 	files.file_name = ""
@@ -234,16 +289,12 @@ def build_compositor(scene: bpy.types.Scene, raw: str, scale: float) -> None:
 	files.format.color_depth = "32"
 	files.format.color_mode = "RGBA"
 	files.format.exr_codec = "ZIP"
+	return tree, files
 
-	def write(socket, name: str) -> None:
-		files.file_output_items.new("RGBA", name)
-		tree.links.new(socket, files.inputs[name])
 
-	for group in GROUPS:
-		write(denoise(tree, main, group), f"main_{group}")
-		write(blur(tree, denoise(tree, mug, group), MUG_BLUR_PX * scale), f"mug_{group}")
-	write(blur(tree, mug.outputs["Alpha"], MUG_BLUR_PX * scale), "mug_alpha")
-	write(main.outputs[UV_AOV], "glass_uv")
+def write_pass(tree, files, socket, name: str) -> None:
+	files.file_output_items.new("RGBA", name)
+	tree.links.new(socket, files.inputs[name])
 
 
 def render_layer(tree, scene: bpy.types.Scene, name: str):
