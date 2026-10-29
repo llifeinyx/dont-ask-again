@@ -65,6 +65,19 @@ func test_hover_press_and_drag() -> void:
 	slot.get_parent().free()
 
 
+func test_active_keeps_the_outline() -> void:
+	var slot := _slot(false)
+	slot.active = true
+	slot.notification(CanvasItem.NOTIFICATION_DRAW)
+	check_eq(_look(slot), "hover", "the active program is outlined")
+	_move(slot, OUTSIDE, false)
+	check_eq(_look(slot), "hover", "even without the mouse")
+	slot.active = false
+	slot.notification(CanvasItem.NOTIFICATION_DRAW)
+	check_eq(_look(slot), "plain", "not once another program runs")
+	slot.get_parent().free()
+
+
 func test_locked_ignores_the_mouse() -> void:
 	var slot := _slot(true)
 	_presses = 0

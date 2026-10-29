@@ -1,10 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://game/ndos/launcher_slot.gd" id="1"]
 [ext_resource type="PackedScene" path="res://game/ndos/badge.tscn" id="2"]
 [ext_resource type="Texture2D" path="res://assets/ndos/icons/slot_dashes.png" id="3"]
-[ext_resource type="Texture2D" path="res://assets/ndos/icons/active_left.png" id="4"]
-[ext_resource type="Texture2D" path="res://assets/ndos/icons/active_right.png" id="5"]
 
 [node name="LauncherSlot" type="BaseButton"]
 custom_minimum_size = Vector2(90, 72)
@@ -70,22 +68,3 @@ offset_top = 46.0
 offset_right = 90.0
 offset_bottom = 68.0
 kind = 2
-
-[node name="ActiveLeft" type="TextureRect" parent="."]
-visible = false
-layout_mode = 0
-offset_top = 29.0
-offset_right = 8.0
-offset_bottom = 44.0
-mouse_filter = 2
-texture = ExtResource("4")
-
-[node name="ActiveRight" type="TextureRect" parent="."]
-visible = false
-layout_mode = 0
-offset_left = 82.0
-offset_top = 29.0
-offset_right = 90.0
-offset_bottom = 44.0
-mouse_filter = 2
-texture = ExtResource("5")

@@ -19,7 +19,7 @@ declare -A ICONS=(
 	[corps]=corps [observer]=observer [humanet]=humanet
 	[terminal]=terminal [files]=files [settings]=settings
 	[pixel_circle]=badge [pixel_circle_alert]=badge_alert [pixel_padlock]=padlock
-	[eye_open]=eye_open [active_marker_l]=active_left [active_marker_r]=active_right
+	[eye_open]=eye_open
 )
 for name in "${!ICONS[@]}"; do
 	rsvg-convert "$src/$name.svg" -o "$out/${ICONS[$name]}.png"

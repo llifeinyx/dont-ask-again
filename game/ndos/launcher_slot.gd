@@ -1,7 +1,7 @@
 class_name LauncherSlot
 extends BaseButton
-## One program on the ND-OS launcher. An open slot shows hover and press and can be the active program;
-## a locked one is dimmed, carries a padlock and ignores the mouse.
+## One program on the ND-OS launcher. An open slot shows hover and press, and the active program keeps
+## the hover outline; a locked one is dimmed, carries a padlock and ignores the mouse.
 
 @export var program: NdosDesktop.Program = NdosDesktop.Program.NONE
 @export var icon: Texture2D:
@@ -38,8 +38,6 @@ var alert: bool = false:
 @onready var _dashes: TextureRect = $Content/Tile/Dashes
 @onready var _badge: LauncherBadge = $Content/Badge
 @onready var _lock_badge: LauncherBadge = $Content/LockBadge
-@onready var _active_left: Control = $ActiveLeft
-@onready var _active_right: Control = $ActiveRight
 
 
 func _ready() -> void:
@@ -53,7 +51,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_DRAW and is_node_ready():
 		var mode: DrawMode = get_draw_mode()
 		var pressing: bool = mode == DRAW_PRESSED or mode == DRAW_HOVER_PRESSED
-		_hover.visible = not locked and (pressing or mode == DRAW_HOVER)
+		_hover.visible = not locked and (active or pressing or mode == DRAW_HOVER)
 		_content.position.y = NdosTokens.SLOT_PRESS_OFFSET if pressing else 0
 
 
@@ -68,5 +66,4 @@ func _update() -> void:
 	_badge.visible = not locked and (alert or badge_count > 0)
 	_badge.kind = LauncherBadge.Kind.ALERT if alert else LauncherBadge.Kind.COUNT
 	_badge.count = badge_count
-	_active_left.visible = active
-	_active_right.visible = active
+	queue_redraw()

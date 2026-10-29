@@ -49,10 +49,12 @@ const LOCKED_OPACITY: float = 0.55
 ## The program area's border on its left and top edges, in CHROME_BG.
 const APP_AREA_BORDER: int = 2
 
-# Proposed in-game states that are not in Figma yet; Zhan may redraw them there.
-## A hovered slot gets an outline one art pixel wide (2 screen pixels), one art pixel outside its tile.
+# The selector outline around the active program: Zhan chose it over Figma's white triangles on
+# 2026-10-29, and Figma's Launcher Slot, state Active, now draws it as the "Selector" frame (2 px, one
+# art pixel outside the tile, hard pixel corners). Hover shows the same outline as a preview.
 const SLOT_HOVER_LINE := LAUNCHER_SLOT_LINE
 const SLOT_HOVER_WIDTH: int = 2
 const SLOT_HOVER_RADIUS: int = 8
+# Proposed in-game state that is not in Figma yet; Zhan may redraw it there.
 ## A pressed slot's icon and badge move down by one art pixel.
 const SLOT_PRESS_OFFSET: int = 2
