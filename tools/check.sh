@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Every check that must pass before a commit and on CI: import, compile everything, unit tests,
-# boot with a screenshot, screenshots of fixed states compared with Blender and with approved goldens.
+# boot with a screenshot, screenshots of fixed states compared with Blender, Figma and approved goldens.
 # UPDATE_GOLDEN=1 replaces the goldens with the new screenshots instead of comparing.
 # Needs `godot` on the PATH (tools/ci/install_godot.sh); the screenshot steps need xvfb and a Vulkan
 # driver (mesa-vulkan-drivers gives a software one).
@@ -57,7 +57,12 @@ grep -q "Forward+" "$OUT/boot.log" || { echo "FAILED: not running on Forward+"; 
 echo "== front screenshots"
 run front_shots xvfb-run -a -s "-screen 0 1280x720x24" \
 	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --scene res://tests/shots/front_shots.tscn \
-	-- --shots="$OUT/shots/front"
+	-- --shots="$OUT/shots/states"
+
+echo "== ND-OS screenshots"
+run ndos_shots xvfb-run -a -s "-screen 0 1280x720x24" \
+	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --scene res://tests/shots/ndos_shots.tscn \
+	-- --shots="$OUT/shots/states"
 
 echo "== compare screenshots"
 compare_flags=()
@@ -65,6 +70,6 @@ if [[ "${UPDATE_GOLDEN:-0}" == 1 ]]; then
 	compare_flags=(--update-golden)
 fi
 run compare "$GODOT" --headless --path . --script res://tests/compare_shots.gd \
-	-- --shots="$OUT/shots/front" "${compare_flags[@]}"
+	-- --shots="$OUT/shots/states" "${compare_flags[@]}"
 
 echo "ALL CHECKS PASSED (logs and screenshots in $OUT)"

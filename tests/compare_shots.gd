@@ -1,8 +1,8 @@
 extends SceneTree
 ## Compares screenshots with what they must look like and exits with 1 on any mismatch:
 ##   godot --headless --path . --script res://tests/compare_shots.gd -- --shots=<dir> [--update-golden]
-## - tests/reference/<shot>.png come from Blender (tools/blender/export_front.py). Where one exists, the
-##   shot must match it closely at full size.
+## - tests/reference/<shot>.png come from the source the shot must match at full size: front_* from
+##   Blender (tools/blender/export_front.py), ndos_* from Figma (the ND-OS Desktop frame, 2:59).
 ## - tests/golden/<shot>.png are approved screenshots at quarter size; they catch any change of look.
 ##   --update-golden replaces them when a change is meant. Commit the new ones in the same change.
 ## Every reference and golden needs a shot of the same name, so a dropped shot cannot pass unnoticed.
@@ -32,7 +32,17 @@ class Limits:
 		outliers = count
 
 
-var _reference_limits := Limits.new(0.75, 6, 16, 32)
+## Shot name prefix -> where its reference comes from.
+const REFERENCE_SOURCES: Dictionary[String, String] = {"front_": "Blender", "ndos_": "Figma"}
+
+## Figma and Godot rasterise text differently: Figma keeps the "ND-OS" title on a half pixel row and
+## blurs it over one more row, and its antialiasing is a little softer. Those text pixels are the
+## outliers; everything else (panels, icons, badges) matches within a step or two. Measured on M3:
+## mean 0.03, 99.9% within 4, 438 pixels over 16; the limits leave about 20% on top.
+var _reference_limits: Dictionary[String, Limits] = {
+	"Blender": Limits.new(0.75, 6, 16, 32),
+	"Figma": Limits.new(0.06, 6, 16, 520),
+}
 var _golden_limits := Limits.new(0.5, 4, 8, 8)
 
 
@@ -79,9 +89,14 @@ func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 
 	var reference_path: String = ProjectSettings.globalize_path(REFERENCE_DIR.path_join(file))
 	if FileAccess.file_exists(reference_path):
-		var problem: String = _compare(shot, Image.load_from_file(reference_path), _reference_limits, heat_path % "reference")
-		if not problem.is_empty():
-			problems.append("against Blender: " + problem)
+		var source: String = _reference_source(file)
+		if source.is_empty():
+			problems.append("has a reference but no known source for its name")
+		else:
+			var limits: Limits = _reference_limits[source]
+			var problem: String = _compare(shot, Image.load_from_file(reference_path), limits, heat_path % "reference")
+			if not problem.is_empty():
+				problems.append("against %s: %s" % [source, problem])
 
 	var small: Image = shot.duplicate()
 	for i: int in GOLDEN_HALVINGS:
@@ -99,6 +114,13 @@ func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 		if not problem.is_empty():
 			problems.append("against golden: " + problem)
 	return problems
+
+
+static func _reference_source(file: String) -> String:
+	for prefix: String in REFERENCE_SOURCES:
+		if file.begins_with(prefix):
+			return REFERENCE_SOURCES[prefix]
+	return ""
 
 
 ## Empty when the images match within the limits; otherwise what differs. Saves a heat map on failure.
