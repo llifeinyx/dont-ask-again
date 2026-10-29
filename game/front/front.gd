@@ -1,10 +1,15 @@
 class_name FrontFrame
 extends Control
-## The front frame: Blender light layers summed in linear light, the mug over them, then AgX.
-## Lighting decides how strong each layer is.
+## The front frame: Blender light layers summed in linear light, the picture on the glass, the mug over
+## them, then AgX. Lighting decides how strong each layer is. Without show_screen() the glass stays
+## dark, as Blender rendered it.
 
 const MANIFEST_PATH := "res://assets/front/manifest.tres"
 const LUT_PATH := "res://assets/front/agx_punchy_65.bin"
+const INVERSE_LUT_PATH := "res://assets/front/agx_punchy_inverse_65.bin"
+const GLASS_UV_PATH := "res://assets/front/glass_uv.exr"
+
+@export var surface: ScreenSurface
 
 @onready var _lighting: FrontLighting = $Lighting
 @onready var _frame: SubViewport = $Frame
@@ -22,6 +27,15 @@ func _ready() -> void:
 	_view.set_shader_parameter("exposure", manifest.exposure)
 	_view.set_shader_parameter("frame", _frame.get_texture())
 	Lut3D.load_file(LUT_PATH).apply_to(_view)
+	Lut3D.load_file(INVERSE_LUT_PATH).apply_to(_composite, "agx_inverse_lut")
+	_composite.set_shader_parameter("glass_uv", load(GLASS_UV_PATH))
+	_composite.set_shader_parameter("exposure", manifest.exposure)
+	var ndos_size := Vector2(NdosTokens.SCREEN_SIZE)
+	_composite.set_shader_parameter("reflection_rect", uv_rect(surface.reflection_rect, ndos_size))
+	var reflection: Color = surface.reflection_color.srgb_to_linear()
+	_composite.set_shader_parameter("reflection_color", Vector3(reflection.r, reflection.g, reflection.b))
+	_composite.set_shader_parameter("reflection_strength", surface.reflection_strength)
+	_composite.set_shader_parameter("average_reference", surface.average_reference)
 	_lighting.changed.connect(_apply_lighting)
 	_apply_lighting()
 
@@ -32,6 +46,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## Puts a picture on the glass: display sRGB at ND-OS size. average is a 1×1 texture with its mean
+## linear luminance, which the screen light follows.
+func show_screen(picture: Texture2D, average: Texture2D) -> void:
+	_composite.set_shader_parameter("screen_picture", picture)
+	_composite.set_shader_parameter("glass_on", 1.0)
+	_lighting.screen_average = average
+
+
 func _apply_lighting() -> void:
 	var state: LightingPreset = _lighting.state
 	var tint: Color = state.lamp_tint.srgb_to_linear() * state.lamp
@@ -40,6 +62,8 @@ func _apply_lighting() -> void:
 	_composite.set_shader_parameter("base", state.base)
 	_composite.set_shader_parameter("world", state.world)
 	_composite.set_shader_parameter("indicator", state.indicator)
+	_composite.set_shader_parameter("screen_average", _lighting.screen_average)
+	_composite.set_shader_parameter("average_on", 0.0 if _lighting.screen_average == null else 1.0)
 
 
 ## Pixel rectangle as (x, y, width, height) in UV of an image of the given size.

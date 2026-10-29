@@ -1,0 +1,43 @@
+extends TestCase
+
+## A frame pixel near the middle of the glass and where the UV pass puts it in ND-OS (measured).
+const CENTER_PIXEL := Vector2(1407.5, 790.5)
+const CENTER_UV := Vector2(0.4997, 0.5048)
+## Grid of ND-OS points for the round trip, inside the visible part of the screen.
+const GRID := Vector2i(9, 7)
+const GRID_MARGIN: float = 0.05
+
+
+func _map() -> GlassMap:
+	var manifest: FrontManifest = load(FrontFrame.MANIFEST_PATH)
+	return GlassMap.load_default(manifest)
+
+
+func test_view_to_frame_adds_the_margin_and_sway() -> void:
+	var map := _map()
+	check_eq(map.view_origin, Vector2i(128, 72), "the view sits in the middle of the frame")
+	check_eq(map.view_to_frame(Vector2(10, 20)), Vector2(138, 92), "no sway")
+	check_eq(map.view_to_frame(Vector2(10, 20), Vector2(-5, 3)), Vector2(133, 95), "with sway")
+
+
+func test_frame_to_ndos() -> void:
+	var map := _map()
+	var hit: Vector3 = map.frame_to_ndos(CENTER_PIXEL)
+	check(Vector2(hit.x, hit.y).distance_to(CENTER_UV) < 0.001, "middle of the glass: %s" % hit)
+	check(is_equal_approx(hit.z, 1.0), "fully covered")
+	check_eq(map.frame_to_ndos(Vector2(100, 100)), Vector3.ZERO, "the wall is not glass")
+	check_eq(map.frame_to_ndos(Vector2(-1, 5)), Vector3.ZERO, "outside the frame")
+	check(not map.is_glass(Vector2(100, 100)), "is_glass agrees")
+
+
+func test_round_trip_within_a_pixel() -> void:
+	var map := _map()
+	var ndos_size := Vector2(NdosTokens.SCREEN_SIZE)
+	for y: int in GRID.y:
+		for x: int in GRID.x:
+			var uv := Vector2(lerpf(GRID_MARGIN, 1.0 - GRID_MARGIN, float(x) / (GRID.x - 1)),
+				lerpf(GRID_MARGIN, 1.0 - GRID_MARGIN, float(y) / (GRID.y - 1)))
+			var frame: Vector2 = map.ndos_to_frame(uv)
+			var hit: Vector3 = map.frame_to_ndos(frame)
+			var error: float = (Vector2(hit.x, hit.y) - uv).length() * ndos_size.x
+			check(error <= 1.0, "ND-OS %s -> frame %s -> off by %.2f px" % [uv * ndos_size, frame, error])

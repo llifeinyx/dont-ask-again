@@ -1,6 +1,7 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://game/front/front.gd" id="1"]
+[ext_resource type="Resource" path="res://game/front/screen.tres" id="21"]
 [ext_resource type="Script" path="res://game/front/front_lighting.gd" id="2"]
 [ext_resource type="Resource" path="res://game/front/presets/normal.tres" id="3"]
 [ext_resource type="Resource" path="res://game/front/presets/lamp_off.tres" id="4"]
@@ -45,6 +46,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1")
+surface = ExtResource("21")
 
 [node name="Lighting" type="Node" parent="."]
 script = ExtResource("2")

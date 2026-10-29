@@ -35,6 +35,9 @@ const BADGE_LINE := Color("#6e6454")
 ## "dark"
 const DARK := Color("#3a3328")
 
+## The Desktop frame, 640×480 logical at 2×; ND-OS renders at this size.
+const SCREEN_SIZE := Vector2i(1280, 960)
+
 ## The top panel's background, top to bottom, in equal hard steps; the middle steps are raw fills.
 const TOP_PANEL_STEPS: Array[Color] = [
 	PANEL_TOP, Color("#6d6557"), Color("#6a6255"), Color("#675f52"),

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CrtPreset" format=3]
+
+[ext_resource type="Script" path="res://game/glass/crt_preset.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+scanline_opacity = 0.0
+glow_opacity = 0.0
+vignette_mid_opacity = 0.0
+vignette_edge_opacity = 0.0
+noise_opacity = 0.0
+edge_shadow_opacity = 0.0
+edge_light_opacity = 0.0
