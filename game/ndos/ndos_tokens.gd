@@ -3,13 +3,13 @@ class_name NdosTokens
 ## A comment in quotes names the Figma variable; values without one are raw values from the Desktop
 ## frame (2:59). tools/ndos/build_theme.gd turns these into assets/ndos/theme.tres.
 
-# Figma variables.
-## "dark"
-const DARK := Color("#3a3328")
-## "panel/text"
-const PANEL_TEXT := Color("#e8e0ce")
+# Figma variables, collection "ND-OS", mode "Bureau", in Figma's order.
+## "panel/top"
+const PANEL_TOP := Color("#70685a")
 ## "panel/bottom"
 const PANEL_BOTTOM := Color("#5a5347")
+## "panel/text"
+const PANEL_TEXT := Color("#e8e0ce")
 ## "launcher/bg"
 const LAUNCHER_BG := Color("#464036")
 ## "launcher/slot"
@@ -20,10 +20,24 @@ const LAUNCHER_SLOT_LINE := Color("#968c78")
 const CHROME_BG := Color("#e6dfcf")
 ## "app/bg"
 const APP_BG := Color("#0d0d0c")
+## "accent"
+const ACCENT := Color("#cdac5c")
+## "eye/on": the ObServer eye while it watches (drawn into icons/eye_open.png).
+const EYE_ON := Color("#dc463c")
+## "eye/off"
+const EYE_OFF := Color("#968c78")
+## "badge/bg": the cream badge circle (drawn into icons/badge.png).
+const BADGE_BG := Color("#faf6ec")
+## "badge/red": ObServer's alert circle (drawn into icons/badge_alert.png).
+const BADGE_RED := Color("#c83228")
+## "badge/line": the badge's pixel rim.
+const BADGE_LINE := Color("#6e6454")
+## "dark"
+const DARK := Color("#3a3328")
 
-## The top panel's background, top to bottom, in equal hard steps.
+## The top panel's background, top to bottom, in equal hard steps; the middle steps are raw fills.
 const TOP_PANEL_STEPS: Array[Color] = [
-	Color("#70685a"), Color("#6d6557"), Color("#6a6255"), Color("#675f52"),
+	PANEL_TOP, Color("#6d6557"), Color("#6a6255"), Color("#675f52"),
 	Color("#635c4f"), Color("#60594c"), Color("#5d564a"), PANEL_BOTTOM,
 ]
 const TOP_PANEL_HEIGHT: int = 38
