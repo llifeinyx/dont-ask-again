@@ -3,15 +3,17 @@ extends SceneTree
 ##   godot --headless --path . --script res://tests/compare_shots.gd -- --shots=<dir> [--update-golden]
 ## - tests/reference/<shot>.png come from the source the shot must match at full size: front_* from
 ##   Blender (tools/blender/export_front.py), ndos_* from Figma (the ND-OS Desktop frame, 2:59).
-## - tests/golden/<shot>.png are approved screenshots at quarter size; they catch any change of look.
+## - tests/golden/<shot>.png are approved screenshots; they catch any change of look. Front goldens are
+##   quarter size; ND-OS goldens stay full size, because halving averages away a changed digit.
 ##   --update-golden replaces them when a change is meant. Commit the new ones in the same change.
 ## Every reference and golden needs a shot of the same name, so a dropped shot cannot pass unnoticed.
 ## A heat map <shot>_reference_diff.png or <shot>_golden_diff.png is saved next to a shot that fails.
 
 const REFERENCE_DIR := "res://tests/reference"
 const GOLDEN_DIR := "res://tests/golden"
-## Goldens are halved this many times, which averages away noise and keeps the files small.
-const GOLDEN_HALVINGS: int = 2
+## Goldens are halved this many times, which averages away noise and keeps the files small. ND-OS has
+## no noise (no light layers, no BC6H) and its small text must not average away.
+const GOLDEN_HALVINGS: Dictionary[String, int] = {"front_": 2, "ndos_": 0}
 ## Heat map brightness per step of difference.
 const HEAT_GAIN: int = 16
 
@@ -43,7 +45,12 @@ var _reference_limits: Dictionary[String, Limits] = {
 	"Blender": Limits.new(0.75, 6, 16, 32),
 	"Figma": Limits.new(0.06, 6, 16, 520),
 }
-var _golden_limits := Limits.new(0.5, 4, 8, 8)
+## ND-OS renders the same every time (0 pixels off between runs), so its full-size goldens are strict:
+## a "3" that turns into an "8" on a badge changes only about 10 pixels.
+var _golden_limits: Dictionary[String, Limits] = {
+	"front_": Limits.new(0.5, 4, 8, 8),
+	"ndos_": Limits.new(0.05, 1, 8, 2),
+}
 
 
 func _init() -> void:
@@ -99,7 +106,7 @@ func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 				problems.append("against %s: %s" % [source, problem])
 
 	var small: Image = shot.duplicate()
-	for i: int in GOLDEN_HALVINGS:
+	for i: int in GOLDEN_HALVINGS[_family(file)]:
 		small.shrink_x2()
 	var golden_path: String = ProjectSettings.globalize_path(GOLDEN_DIR.path_join(file))
 	if update:
@@ -110,10 +117,16 @@ func _check(shots_dir: String, file: String, update: bool) -> PackedStringArray:
 	elif not FileAccess.file_exists(golden_path):
 		problems.append("no golden yet; check the shot and run with --update-golden")
 	else:
-		var problem: String = _compare(small, Image.load_from_file(golden_path), _golden_limits, heat_path % "golden")
+		var limits: Limits = _golden_limits[_family(file)]
+		var problem: String = _compare(small, Image.load_from_file(golden_path), limits, heat_path % "golden")
 		if not problem.is_empty():
 			problems.append("against golden: " + problem)
 	return problems
+
+
+## Which part of the game a shot shows, as the prefix of its name; anything unknown counts as front.
+static func _family(file: String) -> String:
+	return "ndos_" if file.begins_with("ndos_") else "front_"
 
 
 static func _reference_source(file: String) -> String:

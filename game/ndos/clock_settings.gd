@@ -1,7 +1,7 @@
 class_name ClockSettings
 extends Resource
 ## When the shift starts on the ND-OS clock and how fast game time runs. The year is never shown; it
-## only makes the calendar maths right.
+## only makes the calendar maths right. The start must be a real date: Godot rejects 2/31 with an error.
 
 @export var start_year: int = 2026
 @export_range(1, 12) var start_month: int = 1

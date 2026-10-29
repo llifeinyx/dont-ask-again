@@ -40,6 +40,8 @@ func test_runs_at_the_set_speed() -> void:
 	check_eq(clock.text(), "10/17  9:00 AM", "a minute is not over yet")
 	clock.elapsed = 60.0
 	check_eq(clock.text(), "10/17  9:01 AM", "real time: one minute per minute")
+	clock.elapsed = 3600.0
+	check_eq(clock.text(), "10/17  10:00 AM", "a whole hour of real time, despite float rounding")
 	clock.settings.game_minutes_per_second = 1.0
 	clock.elapsed = 90.0
 	check_eq(clock.text(), "10/17  10:30 AM", "one game minute per second")

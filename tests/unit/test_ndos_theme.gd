@@ -10,11 +10,9 @@ func test_saved_theme_matches_the_tokens() -> void:
 	check_eq(saved.default_font_size, built.default_font_size, "default font size; " + hint)
 	for index: int in Theme.DATA_TYPE_MAX:
 		var data_type := index as Theme.DataType
-		var types: PackedStringArray = built.get_type_list()
-		types.append_array(saved.get_type_list())
-		for type_name: String in types:
-			var names: PackedStringArray = built.get_theme_item_list(data_type, type_name)
-			names.append_array(saved.get_theme_item_list(data_type, type_name))
+		for type_name: String in _union(built.get_type_list(), saved.get_type_list()):
+			var names: PackedStringArray = _union(
+				built.get_theme_item_list(data_type, type_name), saved.get_theme_item_list(data_type, type_name))
 			for item: String in names:
 				var a: Variant = saved.get_theme_item(data_type, item, type_name)
 				var b: Variant = built.get_theme_item(data_type, item, type_name)
@@ -25,6 +23,14 @@ func test_saved_theme_matches_the_tokens() -> void:
 		saved_variations.sort()
 		built_variations.sort()
 		check_eq(saved_variations, built_variations, "variations of %s; %s" % [base, hint])
+
+
+static func _union(a: PackedStringArray, b: PackedStringArray) -> PackedStringArray:
+	var result: PackedStringArray = a.duplicate()
+	for value: String in b:
+		if not result.has(value):
+			result.append(value)
+	return result
 
 
 ## Equal values; resources are equal when every stored property is, or when they are the same file.
@@ -44,7 +50,5 @@ func _same(a: Variant, b: Variant) -> bool:
 			if usage & PROPERTY_USAGE_STORAGE and property_name != "resource_name":
 				if not _same(ra.get(property_name), rb.get(property_name)):
 					return false
-		return true
-	if a is Image:
 		return true
 	return a == b

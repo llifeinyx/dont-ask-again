@@ -44,7 +44,8 @@ godot --path . -- --windowed       # play in a window
 - Screenshot scenes in `tests/shots/` save fixed states (front: lamp on, flickering, off; ND-OS: idle, slot
   hovered, slot pressed). `tests/compare_shots.gd` compares each with `tests/reference/` when one exists
   (full size: `front_*` from Blender, `ndos_*` from Figma, each source with its own limits) and with
-  `tests/golden/` (quarter size). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
+  `tests/golden/` (front at quarter size; ND-OS at full size with strict limits, since it renders the same
+  every time and a changed digit must not average away). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
   small part such as the indicator or the mug cannot break unnoticed. Every reference and golden needs a
   shot. A failing shot gets a `_reference_diff.png` or `_golden_diff.png` heat map. When a change of look
   is meant, run `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.

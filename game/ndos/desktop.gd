@@ -26,8 +26,11 @@ func _ready() -> void:
 	_show_time()
 
 
-## Marks a program as the one running in the program area.
+## Marks a program as the one running in the program area. Locked programs never run.
 func select(program: Program) -> void:
+	if program != Program.NONE and _slots[program].locked:
+		push_error("%s is locked and cannot run" % Program.keys()[program])
+		return
 	active_program = program
 	for slot: LauncherSlot in _slots.values():
 		slot.active = slot.program == program

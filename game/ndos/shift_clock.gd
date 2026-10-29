@@ -9,6 +9,9 @@ signal changed
 const SECONDS_PER_MINUTE: int = 60
 const HOURS_PER_HALF_DAY: int = 12
 const NOON: int = 12
+## Game minutes added before rounding down: 3600 s × (1/60) comes out as 59.99999999999999 in floats,
+## which must still read as a full hour.
+const ROUNDING_SLACK: float = 1e-6
 
 @export var settings: ClockSettings:
 	set(value):
@@ -39,7 +42,7 @@ func game_time() -> int:
 		"year": settings.start_year, "month": settings.start_month, "day": settings.start_day,
 		"hour": settings.start_hour, "minute": settings.start_minute, "second": 0,
 	})
-	return start + floori(elapsed * settings.game_minutes_per_second) * SECONDS_PER_MINUTE
+	return start + floori(elapsed * settings.game_minutes_per_second + ROUNDING_SLACK) * SECONDS_PER_MINUTE
 
 
 static func format(unix_time: int) -> String:

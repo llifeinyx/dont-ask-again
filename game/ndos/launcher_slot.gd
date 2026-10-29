@@ -44,24 +44,22 @@ var alert: bool = false:
 
 func _ready() -> void:
 	_dashes.self_modulate = NdosTokens.LAUNCHER_SLOT_LINE
-	button_down.connect(_update)
-	button_up.connect(_update)
 	_update()
 
 
 func _notification(what: int) -> void:
-	# Runs after BaseButton has updated its own hover state.
-	if what == NOTIFICATION_MOUSE_ENTER or what == NOTIFICATION_MOUSE_EXIT:
-		_update()
+	# BaseButton redraws on every change of its draw mode, including a drag out of the slot and back
+	# while the button is held, so the hover and press look follows the redraw.
+	if what == NOTIFICATION_DRAW and is_node_ready():
+		var mode: DrawMode = get_draw_mode()
+		var pressing: bool = mode == DRAW_PRESSED or mode == DRAW_HOVER_PRESSED
+		_hover.visible = not locked and (pressing or mode == DRAW_HOVER)
+		_content.position.y = NdosTokens.SLOT_PRESS_OFFSET if pressing else 0
 
 
 func _update() -> void:
 	if not is_node_ready():
 		return
-	var mode: DrawMode = get_draw_mode()
-	var pressing: bool = mode == DRAW_PRESSED or mode == DRAW_HOVER_PRESSED
-	_hover.visible = not locked and (pressing or mode == DRAW_HOVER)
-	_content.position.y = NdosTokens.SLOT_PRESS_OFFSET if pressing else 0
 	_icon.texture = icon
 	_tile.self_modulate.a = NdosTokens.LOCKED_OPACITY if locked else 1.0
 	_back.visible = locked
