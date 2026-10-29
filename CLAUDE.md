@@ -23,7 +23,7 @@ running ND-OS; the frame "front" is the terminal on a desk, built from pre-rende
 
 ```bash
 tools/ci/install_godot.sh          # pinned Godot 4.7.2 into ~/.cache/godot, linked as ~/.local/bin/godot
-tools/check.sh                     # import, compile everything, unit tests, boot on Forward+ with a screenshot
+tools/check.sh                     # import, compile, unit tests, boot, screenshots compared with Blender and goldens
 godot --path . -- --windowed       # play in a window
 ```
 
@@ -33,12 +33,20 @@ godot --path . -- --windowed       # play in a window
   `$CHECK_TIMEOUT` seconds (default 300).
 - The compile step loads every `.gd`, `.tscn` and `.tres`, so a file nothing uses yet still has to compile.
   A unit test fails on a failed check and on any error it logs, including runtime errors.
-- The boot step renders at 2560×1440 on a virtual display and saves `shots/boot.png`. It needs `xvfb-run`
-  and a Vulkan driver. Without a GPU, `mesa-vulkan-drivers` gives
-  lavapipe, which is enough for Forward+ screenshots but says nothing about speed.
+- The import, boot and screenshot steps run on a virtual display (`xvfb-run`) with a Vulkan driver. Without
+  a GPU, `mesa-vulkan-drivers` gives lavapipe, which is enough for Forward+ screenshots but says nothing
+  about speed. Import is not headless on purpose: with a rendering device Godot compresses the light layers
+  to BC6H on the GPU in seconds, while `--headless` falls back to the CPU and takes over ten minutes.
+- The boot step renders at 2560×1440 and saves `shots/boot.png`.
+- Screenshot scenes in `tests/shots/` save fixed states (lamp on, flickering, off). `tests/compare_shots.gd`
+  compares each with `tests/reference/` (from Blender, full size) when one exists and with `tests/golden/`
+  (quarter size). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
+  small part such as the indicator or the mug cannot break unnoticed. Every reference and golden needs a
+  shot. A failing shot gets a `_reference_diff.png` or `_golden_diff.png` heat map. When a change of look
+  is meant, run `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.
 - Launch flags go after `--`: `--windowed`, `--frames=N` (quit after N frames), `--shots=<dir>`
   (save screenshots of fixed states, then quit).
-- Keys: F11 fullscreen/window, F3 debug overlay (debug builds only).
+- Keys: F11 fullscreen/window. Debug builds only: F3 frame time overlay, F5 lamp mode (normal, flicker, off).
 - Final look and frame time are checked on Zhan's PC (RX 9070 XT, CachyOS, fish shell) over Remote Control.
   The minimum target is 1080p60 on a GTX 1060 class GPU.
 
@@ -46,25 +54,48 @@ godot --path . -- --windowed       # play in a window
 
 ```
 project.godot
+assets/
+  front/           Blender export (never edit by hand): light layers, mug layers, glass UV pass, AgX LUT,
+                   manifest.tres. The .import files next to them choose BC6H or lossless.
 game/
-  core/            things that live for the whole game: launch options, debug overlay (autoload Debug)
+  core/            things that live for the whole game: launch options, debug overlay (autoload Debug), LUT loader
   main/            entry scene, window and scaling
+  front/           the front frame: composite and view shaders, FrontLighting, lighting presets, flicker
+  shaders/         shader includes shared by several scenes
 tests/
   test_case.gd     base class for unit tests
   run_tests.gd     runner: godot --headless --path . --script res://tests/run_tests.gd
   compile_all.gd   loads every script and scene; fails on any error
-  error_log.gd     Logger that collects errors for both runners
+  compare_shots.gd compares screenshots with references and goldens
+  error_log.gd     Logger that collects errors for the test tools
   unit/            test_*.gd, one file per script under test
+  shots/           scenes that save screenshots of fixed states
+  reference/       frames from Blender the game must match (not imported by Godot)
+  golden/          approved screenshots at quarter size (not imported by Godot)
 tools/
   check.sh         every check, locally and on CI
   ci/              CI helpers
+  blender/         export_front.py, run in Blender on Zhan's PC
 .github/workflows/ checks on push and PR
 ```
 
 Coming with the next milestones (create a folder when it gets its first file):
-`assets/front/` (Blender layers, UV pass, reference PNG, manifest.json), `assets/ndos/` (icons, fonts, theme),
-`game/front/`, `game/ndos/`, `game/glass/`, `game/shaders/` (shared shader includes), `tests/golden/`,
-`tools/blender/`, `assets/LICENSES.md`.
+`assets/ndos/` (icons, fonts, theme), `game/ndos/`, `game/glass/`, `assets/LICENSES.md`.
+
+## Front export
+
+`tools/blender/export_front.py` runs in Blender 5.2 on Zhan's PC over Remote Control, on
+`crt_terminal_room.blend` (it stays on that PC, never in the repo):
+
+```bash
+blender -b crt_terminal_room.blend --python tools/blender/export_front.py -- --out <dir> [--preview]
+```
+
+It renders both view layers, writes everything listed in its docstring under `<dir>` laid out like the
+repo, and never saves the .blend. It checks the scene before rendering, refuses to run without `-b`,
+moves files into `<dir>` only when the whole export worked, and exits with 1 on any error. Always run `--preview` first (25%, 32 samples) and wait for Zhan's
+go before the full export. A full export goes straight into a clone of the repo (`--out <clone>`), then
+gets committed with Git LFS from that PC. After a new export, run the checks and update the goldens.
 
 ## Code rules
 
@@ -93,13 +124,17 @@ Coming with the next milestones (create a folder when it gets its first file):
 
 ## Front frame pipeline (facts from M0)
 
-- One EXR per light group (lamp, screen, base, ambient, indicator), 16-bit half, ZIP compression,
-  2816×1584 (2560×1440 plus 5% margin per side for camera sway). Godot 4.7.2 does not read
+- One EXR per light group (lamp, screen, base, world, indicator), 16-bit half, ZIP compression,
+  2816×1584 (2560×1440 plus 5% margin per side for camera sway). The mug is its own view layer with the same
+  groups, premultiplied, blurred (foreground defocus) and cropped to `manifest.mug_rect`; its coverage is
+  `mug_alpha.exr`. The frame is `room × (1 − mug_alpha) + mug`. Godot 4.7.2 does not read
   multilayer EXR or DWAA/DWAB/HTJ2K compression. EXR files go through Git LFS.
 - The glass UV pass is 32-bit float, stored as (u·m, v·m, m) with a top-left origin; divide by m.
   16-bit is 12× less precise. It stays lossless; light layers are compressed to BC6H in VRAM.
 - Tonemapping is a 65³ 3D LUT baked from Blender AgX + "AgX - Punchy" with a log2 shaper over
-  [-12.47393, 12.5260688117]. Godot's built-in AgX is ~34/255 off and is not used.
+  [-12.47393, 12.5260688117]. Godot's built-in AgX is ~34/255 off and is not used. The LUT is a raw
+  `.bin` read with `FileAccess`, so an export preset must list `assets/front/*.bin` in its non-resource
+  filter.
 - The test reference is the exported layers summed and run through Blender AgX, not Cycles' Combined.
 - ND-OS renders in a 1280×960 SubViewport; a 1×1 SubViewport gives its average colour for the screen
   light layer. Clicks reach ND-OS through the same UV pass with `SubViewport.push_input(event, true)`.

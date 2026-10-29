@@ -12,8 +12,9 @@ F11 switches between fullscreen and a window. F3 shows frame time in debug build
 
 ## Checks
 
-`tools/check.sh` imports the project, compiles every script and scene, runs the unit tests and boots
-the game on a virtual display. It needs `xvfb-run` and a Vulkan driver. CI runs the same script on every
-pull request and on `main`.
+`tools/check.sh` imports the project, compiles every script and scene, runs the unit tests, boots
+the game on a virtual display and compares screenshots of fixed states with frames from Blender and with
+approved goldens. It needs `xvfb-run` and a Vulkan driver. CI runs the same script on every pull request
+and on `main`.
 
 Rules for contributors and for Claude are in [CLAUDE.md](CLAUDE.md).

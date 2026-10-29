@@ -6,3 +6,5 @@
 *.bin binary
 # Blender light layers and the glass UV pass are large and change with every export.
 *.exr filter=lfs diff=lfs merge=lfs -text
+# Full-size frames from Blender that the game's screenshots must match.
+tests/reference/*.png filter=lfs diff=lfs merge=lfs -text

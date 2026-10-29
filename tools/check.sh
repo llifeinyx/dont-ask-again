@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Every check that must pass before a commit and on CI: import, compile everything, unit tests,
-# boot with a screenshot. Needs `godot` on the PATH (tools/ci/install_godot.sh); the boot step needs
-# xvfb and a Vulkan driver (mesa-vulkan-drivers gives a software one).
+# boot with a screenshot, screenshots of fixed states compared with Blender and with approved goldens.
+# UPDATE_GOLDEN=1 replaces the goldens with the new screenshots instead of comparing.
+# Needs `godot` on the PATH (tools/ci/install_godot.sh); the screenshot steps need xvfb and a Vulkan
+# driver (mesa-vulkan-drivers gives a software one).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -30,12 +32,15 @@ run() {
 		[[ $status -eq 124 ]] && echo "FAILED: $name timed out after ${LIMIT}s" || echo "FAILED: $name exited with $status"
 		exit 1
 	fi
-	grep -E "^(PASS|FAIL|BROKEN|TESTS|COMPILE)" "$OUT/$name.log" || true
+	grep -E "^(PASS|FAIL|BROKEN|TESTS|COMPILE|SHOTS)" "$OUT/$name.log" || true
 	fail_on_errors "$OUT/$name.log"
 }
 
 echo "== import"
-run import "$GODOT" --headless --path . --import
+# Not headless: with a rendering device Godot compresses the light layers to BC6H on the GPU in seconds;
+# headless falls back to the CPU and takes over ten minutes.
+run import xvfb-run -a -s "-screen 0 1280x720x24" \
+	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --import
 
 echo "== compile every script and scene"
 run compile "$GODOT" --headless --path . --script res://tests/compile_all.gd
@@ -48,5 +53,18 @@ run boot xvfb-run -a -s "-screen 0 2560x1440x24" \
 	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan -- --shots="$OUT/shots"
 grep -q "Forward+" "$OUT/boot.log" || { echo "FAILED: not running on Forward+"; cat "$OUT/boot.log"; exit 1; }
 [[ -f "$OUT/shots/boot.png" ]] || { echo "FAILED: no boot screenshot"; exit 1; }
+
+echo "== front screenshots"
+run front_shots xvfb-run -a -s "-screen 0 1280x720x24" \
+	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --scene res://tests/shots/front_shots.tscn \
+	-- --shots="$OUT/shots/front"
+
+echo "== compare screenshots"
+compare_flags=()
+if [[ "${UPDATE_GOLDEN:-0}" == 1 ]]; then
+	compare_flags=(--update-golden)
+fi
+run compare "$GODOT" --headless --path . --script res://tests/compare_shots.gd \
+	-- --shots="$OUT/shots/front" "${compare_flags[@]}"
 
 echo "ALL CHECKS PASSED (logs and screenshots in $OUT)"

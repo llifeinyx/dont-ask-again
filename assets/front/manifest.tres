@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="FrontManifest" format=3]
+
+[ext_resource type="Script" path="res://game/front/front_manifest.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+frame_size = Vector2i(2816, 1584)
+view_size = Vector2i(2560, 1440)
+mug_rect = Rect2i(2336, 1368, 480, 216)
+exposure = -0.10000000149011612
+ndos_visible = Rect2(0.0006341362022794783, 0.000781109556555748, 0.9987797141075134, 0.9984082579612732)
+preview = false
+samples = 512
+source = "crt_terminal_room.blend, Blender 5.2.3 LTS, 2026-10-28T20:25:51Z"
