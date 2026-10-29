@@ -11,6 +11,11 @@ var _failed: int = 0
 
 
 func _init() -> void:
+	# Deferred: tests that load a scene need the root window in the tree, which happens after _init.
+	_run.call_deferred()
+
+
+func _run() -> void:
 	OS.add_logger(_log)
 	var files: PackedStringArray = DirAccess.get_files_at(UNIT_DIR)
 	files.sort()

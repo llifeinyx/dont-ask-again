@@ -1,0 +1,70 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/ndos/launcher_slot.gd" id="1"]
+[ext_resource type="PackedScene" path="res://game/ndos/badge.tscn" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ndos/icons/slot_dashes.png" id="3"]
+
+[node name="LauncherSlot" type="BaseButton"]
+custom_minimum_size = Vector2(90, 72)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 90.0
+offset_bottom = 72.0
+focus_mode = 0
+script = ExtResource("1")
+
+[node name="Hover" type="Panel" parent="."]
+visible = false
+layout_mode = 0
+offset_left = 10.0
+offset_top = 2.0
+offset_right = 78.0
+offset_bottom = 70.0
+mouse_filter = 2
+theme_type_variation = &"SlotHover"
+
+[node name="Content" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 90.0
+offset_bottom = 72.0
+mouse_filter = 2
+
+[node name="Tile" type="CanvasGroup" parent="Content"]
+position = Vector2(12, 4)
+
+[node name="Back" type="Panel" parent="Content/Tile"]
+visible = false
+offset_right = 64.0
+offset_bottom = 64.0
+mouse_filter = 2
+theme_type_variation = &"SlotTile"
+
+[node name="Icon" type="TextureRect" parent="Content/Tile"]
+offset_right = 64.0
+offset_bottom = 64.0
+mouse_filter = 2
+
+[node name="Dashes" type="TextureRect" parent="Content/Tile"]
+visible = false
+offset_right = 64.0
+offset_bottom = 64.0
+mouse_filter = 2
+texture = ExtResource("3")
+
+[node name="Badge" parent="Content" instance=ExtResource("2")]
+visible = false
+layout_mode = 0
+offset_left = 66.0
+offset_top = -4.0
+offset_right = 90.0
+offset_bottom = 18.0
+
+[node name="LockBadge" parent="Content" instance=ExtResource("2")]
+visible = false
+layout_mode = 0
+offset_left = 66.0
+offset_top = 46.0
+offset_right = 90.0
+offset_bottom = 68.0
+kind = 2

@@ -9,3 +9,5 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+# Claude Code, local to this PC
+.claude/settings.local.json

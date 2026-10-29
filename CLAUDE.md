@@ -10,6 +10,8 @@ running ND-OS; the frame "front" is the terminal on a desk, built from pre-rende
 - Each milestone of the foundation plan ends in one PR; the next starts only after it is merged.
 - Before opening a PR, have a fresh reviewer agent read the diff and fix what it finds.
 - Steps that need sudo or a password are done by Zhan.
+- Claude works in Zhan's clone on Zhan's PC over Remote Control, so Zhan sees results in Godot right away.
+  Commits stay local; the branch is pushed only when its milestone is ready for its PR.
 
 ## Sources of truth
 
@@ -23,7 +25,7 @@ running ND-OS; the frame "front" is the terminal on a desk, built from pre-rende
 
 ```bash
 tools/ci/install_godot.sh          # pinned Godot 4.7.2 into ~/.cache/godot, linked as ~/.local/bin/godot
-tools/check.sh                     # import, compile, unit tests, boot, screenshots compared with Blender and goldens
+tools/check.sh                     # import, compile, unit tests, boot, screenshots compared with Blender, Figma and goldens
 godot --path . -- --windowed       # play in a window
 ```
 
@@ -35,12 +37,15 @@ godot --path . -- --windowed       # play in a window
   A unit test fails on a failed check and on any error it logs, including runtime errors.
 - The import, boot and screenshot steps run on a virtual display (`xvfb-run`) with a Vulkan driver. Without
   a GPU, `mesa-vulkan-drivers` gives lavapipe, which is enough for Forward+ screenshots but says nothing
-  about speed. Import is not headless on purpose: with a rendering device Godot compresses the light layers
+  about speed. On a PC with a GPU the checks need `xorg-server-xvfb` and `vulkan-swrast` (lavapipe): RADV
+  cannot present into Xvfb, and lavapipe matches CI and the goldens. Import is not headless on purpose: with a rendering device Godot compresses the light layers
   to BC6H on the GPU in seconds, while `--headless` falls back to the CPU and takes over ten minutes.
 - The boot step renders at 2560×1440 and saves `shots/boot.png`.
-- Screenshot scenes in `tests/shots/` save fixed states (lamp on, flickering, off). `tests/compare_shots.gd`
-  compares each with `tests/reference/` (from Blender, full size) when one exists and with `tests/golden/`
-  (quarter size). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
+- Screenshot scenes in `tests/shots/` save fixed states (front: lamp on, flickering, off; ND-OS: idle, slot
+  hovered, slot pressed). `tests/compare_shots.gd` compares each with `tests/reference/` when one exists
+  (full size: `front_*` from Blender, `ndos_*` from Figma, each source with its own limits) and with
+  `tests/golden/` (front at quarter size; ND-OS at full size with strict limits, since it renders the same
+  every time and a changed digit must not average away). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
   small part such as the indicator or the mug cannot break unnoticed. Every reference and golden needs a
   shot. A failing shot gets a `_reference_diff.png` or `_golden_diff.png` heat map. When a change of look
   is meant, run `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.
@@ -57,10 +62,13 @@ project.godot
 assets/
   front/           Blender export (never edit by hand): light layers, mug layers, glass UV pass, AgX LUT,
                    manifest.tres. The .import files next to them choose BC6H or lossless.
+  ndos/            ND-OS fonts (Pixelify Sans), pixel-art icons from Figma, theme.tres (built from tokens)
+  LICENSES.md      third-party assets and their licences
 game/
   core/            things that live for the whole game: launch options, debug overlay (autoload Debug), LUT loader
   main/            entry scene, window and scaling
   front/           the front frame: composite and view shaders, FrontLighting, lighting presets, flicker
+  ndos/            ND-OS desktop: top panel, launcher slots, badges, shift clock, NdosTokens
   shaders/         shader includes shared by several scenes
 tests/
   test_case.gd     base class for unit tests
@@ -70,17 +78,26 @@ tests/
   error_log.gd     Logger that collects errors for the test tools
   unit/            test_*.gd, one file per script under test
   shots/           scenes that save screenshots of fixed states
-  reference/       frames from Blender the game must match (not imported by Godot)
+  reference/       frames from Blender and Figma the game must match (not imported by Godot)
   golden/          approved screenshots at quarter size (not imported by Godot)
 tools/
   check.sh         every check, locally and on CI
   ci/              CI helpers
   blender/         export_front.py, run in Blender on Zhan's PC
+  ndos/            ND-OS theme builder and icon rasteriser
 .github/workflows/ checks on push and PR
 ```
 
-Coming with the next milestones (create a folder when it gets its first file):
-`assets/ndos/` (icons, fonts, theme), `game/ndos/`, `game/glass/`, `assets/LICENSES.md`.
+Coming with the next milestones (create a folder when it gets its first file): `game/glass/`.
+
+## ND-OS from Figma
+
+The Desktop frame (Figma page ND-OS, node 2:59, 1280×960) is the source of truth for ND-OS. Its variables
+and raw values live in `game/ndos/ndos_tokens.gd`; after changing a token, rebuild the theme with
+`godot --headless --path . --script res://tools/ndos/build_theme.gd` and commit both (a unit test checks
+they agree). Icons come from the frame's SVGs through `tools/ndos/rasterize_icons.sh`; the SVGs are not
+kept. `tests/reference/ndos_idle.png` is Figma's 1:1 PNG export of the frame. Hover and pressed slot
+states are not in Figma yet; their tokens are marked as proposed.
 
 ## Front export
 
