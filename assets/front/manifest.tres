@@ -6,9 +6,9 @@
 script = ExtResource("1")
 frame_size = Vector2i(2816, 1584)
 view_size = Vector2i(2560, 1440)
-mug_rect = Rect2i(2336, 1368, 480, 216)
+mug_rect = Rect2i(2320, 1360, 496, 224)
 exposure = -0.10000000149011612
-ndos_visible = Rect2(0.006117304787039757, 0.003900059498846531, 0.987768828868866, 0.9922277331352234)
+ndos_visible = Rect2(0.006116647273302078, 0.0038767224177718163, 0.9878584742546082, 0.9922834038734436)
 preview = false
 samples = 512
-source = "crt_terminal_room.blend, Blender 5.2.3 LTS, 2026-11-01T18:17:15Z"
+source = "crt_terminal_room.blend, Blender 5.2.3 LTS, 2026-11-01T19:05:45Z"
