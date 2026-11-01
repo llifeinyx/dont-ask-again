@@ -42,7 +42,8 @@ godot --path . -- --windowed       # play in a window
   to BC6H on the GPU in seconds, while `--headless` falls back to the CPU and takes over ten minutes.
 - The boot step renders at 2560×1440 and saves `shots/boot.png`.
 - Screenshot scenes in `tests/shots/` save fixed states (front: lamp on, flickering, off; ND-OS: idle, slot
-  hovered, slot pressed). `tests/compare_shots.gd` compares each with `tests/reference/` when one exists
+  hovered, slot pressed; glass, ND-OS on the front frame: CRT full, soft, off, and lamp off). Glass shots
+  have goldens only, compared like the front. `tests/compare_shots.gd` compares each with `tests/reference/` when one exists
   (full size: `front_*` from Blender, `ndos_*` from Figma, each source with its own limits) and with
   `tests/golden/` (front at quarter size; ND-OS at full size with strict limits, since it renders the same
   every time and a changed digit must not average away). Limits cover the mean, the 99.9th percentile and the number of pixels far off, so a
@@ -69,6 +70,7 @@ game/
   main/            entry scene, window and scaling
   front/           the front frame: composite and view shaders, FrontLighting, lighting presets, flicker
   ndos/            ND-OS desktop: top panel, launcher slots, badges, shift clock, NdosTokens
+  glass/           the CRT tube: CRT picture and presets (F6), GlassFit, GlassMap (mouse through the glass)
   shaders/         shader includes shared by several scenes
 tests/
   test_case.gd     base class for unit tests
@@ -78,6 +80,7 @@ tests/
   error_log.gd     Logger that collects errors for the test tools
   unit/            test_*.gd, one file per script under test
   shots/           scenes that save screenshots of fixed states
+  bots/            click bot: clicks every launcher slot through the glass at several window sizes
   reference/       frames from Blender and Figma the game must match (not imported by Godot)
   golden/          approved screenshots at quarter size (not imported by Godot)
 tools/
@@ -85,10 +88,10 @@ tools/
   ci/              CI helpers
   blender/         export_front.py, run in Blender on Zhan's PC
   ndos/            ND-OS theme builder and icon rasteriser
+  glass/           bake_inverse_agx.py: the inverse AgX LUT that keeps ND-OS colours on the tube
 .github/workflows/ checks on push and PR
 ```
 
-Coming with the next milestones (create a folder when it gets its first file): `game/glass/`.
 
 ## ND-OS from Figma
 
@@ -146,7 +149,10 @@ gets committed with Git LFS from that PC. After a new export, run the checks and
   groups, premultiplied, blurred (foreground defocus) and cropped to `manifest.mug_rect`; its coverage is
   `mug_alpha.exr`. The frame is `room × (1 − mug_alpha) + mug`. Godot 4.7.2 does not read
   multilayer EXR or DWAA/DWAB/HTJ2K compression. EXR files go through Git LFS.
-- The glass UV pass is 32-bit float, stored as (u·m, v·m, m) with a top-left origin; divide by m.
+- The glass UV pass is 32-bit float, stored as (u·m, v·m, m) with a top-left origin; divide by m. UV 0..1 is
+  the tube's lit raster, unwrapped along the curved glass in Blender, so curvature and perspective come
+  from the geometry; the glass reaches a few ND-OS pixels past it under the bezel (overscan).
+  `GlassFit` (`game/glass/fit.tres`) places ND-OS in that raster for the picture and the mouse alike.
   16-bit is 12× less precise. It stays lossless; light layers are compressed to BC6H in VRAM.
 - Tonemapping is a 65³ 3D LUT baked from Blender AgX + "AgX - Punchy" with a log2 shaper over
   [-12.47393, 12.5260688117]. Godot's built-in AgX is ~34/255 off and is not used. The LUT is a raw

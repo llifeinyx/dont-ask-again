@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://game/glass/glass.gd" id="1"]
 [ext_resource type="Resource" path="res://game/glass/presets/full.tres" id="2"]
@@ -7,6 +7,7 @@
 [ext_resource type="Shader" path="res://game/glass/glow_blur.gdshader" id="5"]
 [ext_resource type="Shader" path="res://game/glass/crt_picture.gdshader" id="6"]
 [ext_resource type="Shader" path="res://game/glass/screen_average.gdshader" id="7"]
+[ext_resource type="Resource" path="res://game/glass/fit.tres" id="8"]
 
 [sub_resource type="ShaderMaterial" id="blur_across"]
 shader = ExtResource("5")
@@ -31,6 +32,7 @@ script = ExtResource("1")
 full = ExtResource("2")
 soft = ExtResource("3")
 off = ExtResource("4")
+fit = ExtResource("8")
 
 [node name="GlowAcross" type="SubViewport" parent="."]
 size = Vector2i(1280, 960)
@@ -59,7 +61,7 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="Picture" type="SubViewport" parent="."]
-size = Vector2i(1280, 960)
+size = Vector2i(1600, 1200)
 render_target_update_mode = 4
 
 [node name="Crt" type="ColorRect" parent="Picture"]

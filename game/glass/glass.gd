@@ -17,6 +17,8 @@ const NOISE_SEEDS: float = 1000.0
 @export var full: CrtPreset
 @export var soft: CrtPreset
 @export var off: CrtPreset
+## Where ND-OS sits on the tube; the picture and the mouse both follow it.
+@export var fit: GlassFit
 @export var strength: Strength = Strength.FULL:
 	set(value):
 		strength = value
@@ -48,9 +50,12 @@ var _last_ndos_position := Vector2.ZERO
 
 func _ready() -> void:
 	var manifest: FrontManifest = load(FrontFrame.MANIFEST_PATH)
-	_map = GlassMap.load_default(manifest)
-	for viewport: SubViewport in [_glow_across, _glow_down, _picture]:
+	_map = GlassMap.load_default(manifest, fit)
+	for viewport: SubViewport in [_glow_across, _glow_down]:
 		viewport.size = NdosTokens.SCREEN_SIZE
+	_picture.size = fit.picture_size
+	fit.apply_to(_crt)
+	_crt.set_shader_parameter("phosphor_black", fit.phosphor_black)
 	_blur_down.set_shader_parameter("source", _glow_across.get_texture())
 	_crt.set_shader_parameter("glow", _glow_down.get_texture())
 	_crt.set_shader_parameter("screen_size", Vector2(NdosTokens.SCREEN_SIZE))
@@ -72,7 +77,7 @@ func show_ndos(ndos: SubViewport) -> void:
 	_mean.set_shader_parameter("picture", source)
 
 
-## What the tube shows, in display sRGB at ND-OS size.
+## What the tube shows over the glass UV pass, in display sRGB.
 func picture() -> Texture2D:
 	return _picture.get_texture()
 
@@ -89,7 +94,7 @@ func _gui_input(event: InputEvent) -> void:
 	accept_event()
 	var hit: Vector3 = _map.frame_to_ndos(_map.view_to_frame(mouse.position, sway))
 	var button := mouse as InputEventMouseButton
-	if hit.z < GlassMap.MIN_COVERAGE:
+	if not GlassMap.on_picture(hit):
 		_leave_glass()
 		# A button let go off the glass still ends a press that began on it.
 		if button != null and not button.pressed:

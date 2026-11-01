@@ -7,7 +7,8 @@ extends Resource
 ## game/glass/screen_average.gdshader does. That picture lights the room exactly as Blender rendered
 ## the screen layer; a brighter one lights it more.
 @export var average_reference: float = 0.012279
-## The highlight's ellipse in ND-OS pixels; it fades linearly from the centre to its rim.
+## The highlight's ellipse in ND-OS pixels over the whole glass; it fades linearly from the centre to
+## its rim.
 @export var reflection_rect: Rect2 = Rect2(120, 40, 760, 420)
 ## Its colour, picked as sRGB like any colour in the inspector.
 @export var reflection_color: Color = Color("#fff5e0")

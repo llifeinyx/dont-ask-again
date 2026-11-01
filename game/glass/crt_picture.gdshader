@@ -1,11 +1,17 @@
 shader_type canvas_item;
 // The ND-OS picture as the CRT shows it, built like the Figma frame "ND-OS Desktop / CRT" (2:114) and in
 // its colour space (display sRGB): glow, scanlines, vignette, noise, then the tube's edge shading.
-// The front frame turns the result into light. CrtPreset holds the numbers; sizes are in ND-OS pixels.
+// It is drawn over the glass (UV is a point of the glass UV pass, which follows the curved tube): ND-OS
+// sits inside it where GlassFit puts it, with phosphor black around it, while the vignette, noise and
+// edge shading belong to the tube. The front frame turns the result into light. CrtPreset holds the numbers; sizes are in
+// ND-OS pixels, and the tube counts the same pixels across the whole glass.
 
-uniform sampler2D picture : filter_nearest, repeat_disable;
+#include "res://game/shaders/glass_fit.gdshaderinc"
+
+uniform sampler2D picture : filter_linear, repeat_disable;
 uniform sampler2D glow : filter_linear, repeat_disable;
 uniform vec2 screen_size = vec2(1280.0, 960.0);
+uniform vec3 phosphor_black : source_color;
 
 uniform float scanline_opacity;
 uniform int scanline_period = 3;
@@ -63,17 +69,21 @@ float random(vec2 pixel, float seed) {
 
 void fragment() {
 	vec2 p = UV * screen_size;
-	vec2 pixel = floor(p);
-	vec3 c = texture(picture, UV).rgb;
-	vec3 g = texture(glow, UV).rgb;
-	c = mix(c, 1.0 - (1.0 - c) * (1.0 - g), glow_opacity);
-	if (int(pixel.y) % scanline_period == 0) {
-		c = mix(c, vec3(0.0), scanline_opacity);
+	vec2 ndos_uv = glass_to_ndos(UV);
+	vec3 c = phosphor_black;
+	if (all(greaterThanEqual(ndos_uv, vec2(0.0))) && all(lessThanEqual(ndos_uv, vec2(1.0)))) {
+		c = texture(picture, ndos_uv).rgb;
+		vec3 g = texture(glow, ndos_uv).rgb;
+		c = mix(c, 1.0 - (1.0 - c) * (1.0 - g), glow_opacity);
+		// The rows follow ND-OS, so they bow with the tube.
+		if (int(floor(ndos_uv.y * screen_size.y)) % scanline_period == 0) {
+			c = mix(c, vec3(0.0), scanline_opacity);
+		}
 	}
 	c = mix(c, vec3(0.0), vignette(length((UV - 0.5) * 2.0)));
 	// Figma's monotone noise, measured on its export: a fine white veil whose mean is
 	// opacity × density × 0.5 over the picture.
-	c = mix(c, vec3(1.0), noise_opacity * noise_density * random(pixel, noise_seed));
+	c = mix(c, vec3(1.0), noise_opacity * noise_density * random(floor(FRAGCOORD.xy), noise_seed));
 	c = mix(c, vec3(0.0), edge_shadow_opacity * inner_shadow(inside_tube(p), edge_shadow_blur));
 	float light = inner_shadow(inside_tube(p - vec2(0.0, edge_light_offset)), edge_light_blur);
 	c = mix(c, edge_light_color, edge_light_opacity * light);

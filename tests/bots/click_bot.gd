@@ -19,7 +19,7 @@ var _failed: int = 0
 func _ready() -> void:
 	await _settle()
 	var manifest: FrontManifest = load(FrontFrame.MANIFEST_PATH)
-	var map := GlassMap.load_default(manifest)
+	var map := GlassMap.load_default(manifest, _view.glass.fit)
 	var to_window: Transform2D = get_viewport().get_final_transform()
 	var desktop: NdosDesktop = _view.desktop
 	var window_size: Vector2i = get_window().size

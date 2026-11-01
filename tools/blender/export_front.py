@@ -171,6 +171,7 @@ def check_scene(scene: bpy.types.Scene) -> list:
 		problems.append(f"{GLASS_OBJECT} has no UV map {GLASS_UV_MAP}")
 	else:
 		problems += uv_orientation_problems(glass)
+		problems += uv_raster_problems(glass)
 	if bpy.data.materials.get(GLASS_MATERIAL) is None:
 		problems.append(f"material {GLASS_MATERIAL} is missing")
 	else:
@@ -183,7 +184,8 @@ def check_scene(scene: bpy.types.Scene) -> list:
 
 
 def add_glass_uv_aov(scene: bpy.types.Scene) -> tuple:
-	"""Makes the glass write its ND-OS position into an AOV: u right, v down, from 0 to 1 over the mesh."""
+	"""Makes the glass write its ND-OS position into an AOV: u right, v down. UV 0..1 is the lit raster,
+	unwrapped along the curved glass; the mesh reaches a little past it, under the bezel."""
 	glass = bpy.data.objects[GLASS_OBJECT]
 	mesh = glass.data
 	uv_layer = mesh.uv_layers[GLASS_UV_MAP]
@@ -204,8 +206,8 @@ def add_glass_uv_aov(scene: bpy.types.Scene) -> tuple:
 	uv.uv_map = GLASS_UV_MAP
 	split = tree.nodes.new("ShaderNodeSeparateXYZ")
 	tree.links.new(uv.outputs["UV"], split.inputs[0])
-	u = map_range(tree, split.outputs["X"], u_min, u_max, 0.0, 1.0)
-	v = map_range(tree, split.outputs["Y"], v_min, v_max, 1.0, 0.0)
+	u = split.outputs["X"]
+	v = map_range(tree, split.outputs["Y"], 0.0, 1.0, 1.0, 0.0)
 	join = tree.nodes.new("ShaderNodeCombineXYZ")
 	tree.links.new(u, join.inputs["X"])
 	tree.links.new(v, join.inputs["Y"])
@@ -243,6 +245,17 @@ def uv_orientation_problems(glass: bpy.types.Object) -> list:
 	if a.x < b.x and a.y > b.y:
 		return []
 	return [f"{GLASS_UV_MAP} is not oriented u right, v up: top-left {tuple(a)}, bottom-right {tuple(b)}"]
+
+
+def uv_raster_problems(glass: bpy.types.Object) -> list:
+	"""UV 0..1 is the lit raster; the glass must reach past it on every side, so no edge of it shows."""
+	uv_layer = glass.data.uv_layers[GLASS_UV_MAP]
+	uvs = np.empty(len(uv_layer.data) * 2, np.float32)
+	uv_layer.data.foreach_get("uv", uvs)
+	uvs = uvs.reshape(-1, 2)
+	if (uvs.min(0) <= 0.0).all() and (uvs.max(0) >= 1.0).all():
+		return []
+	return [f"{GLASS_UV_MAP} must reach past 0..1 on every side, spans {uvs.min(0)}..{uvs.max(0)}"]
 
 
 def render_layers(scene: bpy.types.Scene, raw: str, scale: float) -> None:

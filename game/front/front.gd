@@ -46,7 +46,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Puts a picture on the glass: display sRGB at ND-OS size. average is a 1×1 texture with its mean
+## Puts a picture on the glass: display sRGB over the glass UV pass. average is a 1×1 texture with its mean
 ## linear luminance, which the screen light follows.
 func show_screen(picture: Texture2D, average: Texture2D) -> void:
 	_composite.set_shader_parameter("screen_picture", picture)
