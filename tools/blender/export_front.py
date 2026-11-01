@@ -6,7 +6,7 @@ Writes under <dir>, laid out like the repository:
     assets/front/<group>.exr          room light groups, linear, half float, ZIP
     assets/front/mug_<group>.exr      the mug's light groups, premultiplied, cropped to the mug
     assets/front/mug_alpha.exr        the mug's coverage, in every channel, same crop
-    assets/front/glass_uv.exr         (u*m, v*m, m): ND-OS position on the glass (top-left origin)
+    assets/front/glass_uv.exr         (u*m, v*m, m): position in the tube's lit raster (top-left origin)
                                       times glass coverage m, 32-bit float
     assets/front/agx_punchy_65.bin    the scene's view transform and look baked into a 3D LUT
     assets/front/manifest.tres        sizes, mug position and exposure, read by the game
@@ -34,7 +34,7 @@ MAIN_LAYER = "ViewLayer"
 MUG_LAYER = "Mug"
 GLASS_OBJECT = "CRT_Glass"
 GLASS_MATERIAL = "PC_Glass"
-GLASS_UV_MAP = "UV_Flat"
+GLASS_UV_MAP = "UV_Raster"
 UV_AOV = "ndos_uv"
 
 # The player sees the frame without its 5% margin on each side; the margin is room for camera sway.
@@ -184,8 +184,9 @@ def check_scene(scene: bpy.types.Scene) -> list:
 
 
 def add_glass_uv_aov(scene: bpy.types.Scene) -> tuple:
-	"""Makes the glass write its ND-OS position into an AOV: u right, v down. UV 0..1 is the lit raster,
-	unwrapped along the curved glass; the mesh reaches a little past it, under the bezel."""
+	"""Makes the glass write its raster position into an AOV: u right, v down. UV 0..1 is the lit raster,
+	unwrapped along the curved glass; the mesh reaches a little past it, under the bezel. The game's
+	GlassFit places ND-OS in the raster."""
 	glass = bpy.data.objects[GLASS_OBJECT]
 	mesh = glass.data
 	uv_layer = mesh.uv_layers[GLASS_UV_MAP]
@@ -253,7 +254,7 @@ def uv_raster_problems(glass: bpy.types.Object) -> list:
 	uvs = np.empty(len(uv_layer.data) * 2, np.float32)
 	uv_layer.data.foreach_get("uv", uvs)
 	uvs = uvs.reshape(-1, 2)
-	if (uvs.min(0) <= 0.0).all() and (uvs.max(0) >= 1.0).all():
+	if (uvs.min(0) < 0.0).all() and (uvs.max(0) > 1.0).all():
 		return []
 	return [f"{GLASS_UV_MAP} must reach past 0..1 on every side, spans {uvs.min(0)}..{uvs.max(0)}"]
 
@@ -436,7 +437,7 @@ def mug_crop(alpha: np.ndarray) -> tuple:
 
 
 def write_glass_uv_report(assets: str) -> tuple:
-	"""Part of ND-OS seen through the glass, as (u, v, width, height); the rest hides under the bezel."""
+	"""Part of the raster seen through the glass, as (u, v, width, height); the rest hides under the bezel."""
 	uv = read_exr(os.path.join(assets, "glass_uv.exr"))
 	inside = uv[..., 2] > 0.999
 	if not inside.any():
@@ -444,7 +445,7 @@ def write_glass_uv_report(assets: str) -> tuple:
 	u = uv[..., 0][inside] / uv[..., 2][inside]
 	v = uv[..., 1][inside] / uv[..., 2][inside]
 	visible = (float(u.min()), float(v.min()), float(u.max() - u.min()), float(v.max() - v.min()))
-	log("ND-OS visible through the glass: u %.4f..%.4f, v %.4f..%.4f" % (u.min(), u.max(), v.min(), v.max()))
+	log("Raster visible through the glass: u %.4f..%.4f, v %.4f..%.4f" % (u.min(), u.max(), v.min(), v.max()))
 	return visible
 
 

@@ -10,10 +10,12 @@ const SCALES: Array[float] = [0.9, 1.0, 1.1]
 ## Round-trip error allowed, in ND-OS pixels.
 const ROUND_TRIP_PIXELS: float = 0.001
 ## ND-OS points that must stay in view: the outer corners of the "ND-OS" label and of the clock, the
-## content nearest the picture's corners (measured on tests/reference/ndos_idle.png).
-const CORNER_CONTENT: Array[Vector2] = [Vector2(21, 13), Vector2(1264, 13)]
-## The raster may reach at most this many ND-OS pixels under the bezel on any side.
-const OVERSCAN_PIXELS: float = 8.0
+## content nearest the picture's corners (measured on tests/reference/ndos_idle.png), and two points as
+## far into the bottom corners, where the search works towards the right and bottom edges.
+const CORNER_CONTENT: Array[Vector2] = [Vector2(21, 13), Vector2(1264, 13), Vector2(21, 947), Vector2(1264, 947)]
+## The raster may reach at most this many ND-OS pixels under the bezel on any side. The export keeps it
+## at about 4 down and 8 across (manifest.ndos_visible), so this also catches a raster that grew.
+const OVERSCAN_PIXELS: float = 8.5
 
 
 func _fit() -> GlassFit:
@@ -63,3 +65,16 @@ func test_corner_content_stays_in_view() -> void:
 		var error: float = (Vector2(hit.x, hit.y) * ndos_size - point).length()
 		check(frame.x >= 0.0 and hit.z >= GlassMap.MIN_COVERAGE and error <= 1.0,
 			"ND-OS %s: frame %s, coverage %s, off by %.2f px" % [point, frame, hit.z, error])
+
+
+func test_the_export_agrees() -> void:
+	var manifest: FrontManifest = load(FrontFrame.MANIFEST_PATH)
+	var fit := _fit()
+	var ndos_size := Vector2(NdosTokens.SCREEN_SIZE)
+	var low: Vector2 = fit.glass_to_ndos(manifest.ndos_visible.position)
+	var high: Vector2 = fit.glass_to_ndos(manifest.ndos_visible.end)
+	check(low.x >= 0.0 and low.y >= 0.0 and high.x <= 1.0 and high.y <= 1.0,
+		"the export sees only ND-OS: %s..%s" % [low, high])
+	var under_bezel: Vector2 = low.max(Vector2.ONE - high) * ndos_size
+	check(under_bezel.x <= OVERSCAN_PIXELS and under_bezel.y <= OVERSCAN_PIXELS,
+		"the export hides at most %s px: %s" % [OVERSCAN_PIXELS, under_bezel])

@@ -29,3 +29,19 @@ extends Resource
 @export_range(0.0, 64.0) var edge_light_blur: float = 10.0
 ## The warm edge light is a shadow cast from this far up, so it lines the top edge.
 @export_range(0.0, 16.0) var edge_light_offset: float = 4.0
+
+
+## The preset's properties that the shader has as uniforms, by name; glow_blur goes to the blur passes.
+static func uniforms_of(shader: Shader) -> Array[String]:
+	var names: Array[String] = []
+	for uniform: Dictionary in shader.get_shader_uniform_list():
+		var uniform_name: String = uniform["name"]
+		names.append(uniform_name)
+	var shared: Array[String] = []
+	for property: Dictionary in CrtPreset.new().get_property_list():
+		var usage: int = property["usage"]
+		var property_name: String = property["name"]
+		if usage & PROPERTY_USAGE_SCRIPT_VARIABLE and property_name in names:
+			shared.append(property_name)
+	return shared
+

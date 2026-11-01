@@ -24,8 +24,6 @@ const NOISE_SEEDS: float = 1000.0
 		strength = value
 		_apply_preset()
 
-## The camera's shift inside the frame margin, in frame pixels. Clicks follow it.
-var sway := Vector2.ZERO
 ## Picks the CRT noise pattern; it moves on every frame. Screenshots stop the glass and set it.
 var noise_seed: float = 0.0:
 	set(value):
@@ -37,6 +35,8 @@ var _map: GlassMap
 var _ndos: SubViewport
 var _on_glass: bool = false
 var _last_ndos_position := Vector2.ZERO
+## Buttons whose press ND-OS got; only their releases follow, wherever the mouse is let go.
+var _pressed_buttons: int = 0
 
 @onready var _glow_across: SubViewport = $GlowAcross
 @onready var _glow_down: SubViewport = $GlowDown
@@ -92,13 +92,14 @@ func _gui_input(event: InputEvent) -> void:
 	if mouse == null or _ndos == null:
 		return
 	accept_event()
-	var hit: Vector3 = _map.frame_to_ndos(_map.view_to_frame(mouse.position, sway))
+	var hit: Vector3 = _map.frame_to_ndos(_map.view_to_frame(mouse.position))
 	var button := mouse as InputEventMouseButton
 	if not GlassMap.on_picture(hit):
 		_leave_glass()
-		# A button let go off the glass still ends a press that began on it.
-		if button != null and not button.pressed:
-			_forward(mouse, _last_ndos_position)
+		# A press that began on the picture still ends when the button is let go off it, away from every
+		# control, so the pressed one cancels instead of firing or showing hover again.
+		if button != null and not button.pressed and _pressed_buttons & _mask(button):
+			_forward(mouse, OFF_PICTURE)
 		return
 	_forward(mouse, Vector2(hit.x, hit.y) * Vector2(NdosTokens.SCREEN_SIZE))
 
@@ -118,6 +119,12 @@ func _forward(event: InputEventMouse, ndos_position: Vector2) -> void:
 	var forwarded: InputEventMouse = event.duplicate()
 	forwarded.position = ndos_position
 	forwarded.global_position = ndos_position
+	var button := forwarded as InputEventMouseButton
+	if button != null:
+		if button.pressed:
+			_pressed_buttons |= _mask(button)
+		else:
+			_pressed_buttons &= ~_mask(button)
 	var motion := forwarded as InputEventMouseMotion
 	if motion != null:
 		motion.relative = ndos_position - _last_ndos_position if _on_glass else Vector2.ZERO
@@ -147,8 +154,10 @@ func _apply_preset() -> void:
 	# Figma's blur radius is two sigmas.
 	for blur: ShaderMaterial in [_blur_across, _blur_down]:
 		blur.set_shader_parameter("sigma", preset.glow_blur / 2.0)
-	for property: String in ["scanline_opacity", "scanline_period", "glow_opacity", "vignette_start",
-			"vignette_mid", "vignette_mid_opacity", "vignette_edge_opacity", "noise_opacity", "noise_density",
-			"tube_radius", "edge_shadow_opacity", "edge_shadow_blur", "edge_light_color", "edge_light_opacity",
-			"edge_light_blur", "edge_light_offset"]:
+	var uniforms: Array[String] = CrtPreset.uniforms_of(_crt.shader)
+	for property: String in uniforms:
 		_crt.set_shader_parameter(property, preset.get(property))
+
+
+static func _mask(button: InputEventMouseButton) -> int:
+	return 1 << (button.button_index - 1)

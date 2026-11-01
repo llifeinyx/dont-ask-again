@@ -12,9 +12,11 @@ const INVERSE_STEPS: int = 12
 const STEP_HALVINGS: int = 12
 ## Frame pixels between the samples of the local slope in ndos_to_frame.
 const SLOPE_STEP: int = 4
-## How far, in glass UV, the closest frame pixel may show from the asked point: about two ND-OS pixels.
-## Farther means the point is hidden under the bezel.
+## How far, in glass UV, the closest frame pixel may show from the asked point (0.002 is 2.6 ND-OS pixels
+## across and 1.9 down at picture_scale 1). Farther means the point is hidden under the bezel.
 const LANDING_TOLERANCE: float = 0.002
+## Newton stops once a step is shorter than this, in frame pixels.
+const CONVERGED: float = 0.01
 
 var frame_size: Vector2i
 ## Top-left corner of the view (what the player sees) in the frame.
@@ -32,7 +34,7 @@ static func load_default(manifest: FrontManifest, glass_fit: GlassFit) -> GlassM
 
 ## Whether a frame_to_ndos() result is a point of the ND-OS picture: on the glass, inside the picture.
 static func on_picture(hit: Vector3) -> bool:
-	return hit.z >= MIN_COVERAGE and hit.x >= 0.0 and hit.y >= 0.0 and hit.x <= 1.0 and hit.y <= 1.0
+	return hit.z >= MIN_COVERAGE and hit.x >= 0.0 and hit.y >= 0.0 and hit.x < 1.0 and hit.y < 1.0
 
 
 func _init(uv_pass: Image, manifest: FrontManifest, glass_fit: GlassFit) -> void:
@@ -43,9 +45,9 @@ func _init(uv_pass: Image, manifest: FrontManifest, glass_fit: GlassFit) -> void
 	view_origin = Vector2i((Vector2(manifest.frame_size - manifest.view_size) / 2.0).round())
 
 
-## The frame pixel under a point of the view. sway is the camera's shift inside the frame margin.
-func view_to_frame(view_position: Vector2, sway: Vector2 = Vector2.ZERO) -> Vector2:
-	return view_position + Vector2(view_origin) + sway
+## The frame pixel under a point of the view.
+func view_to_frame(view_position: Vector2) -> Vector2:
+	return view_position + Vector2(view_origin)
 
 
 ## ND-OS position (0..1 on the picture) and glass coverage at a frame point; coverage 0 off the glass.
@@ -68,12 +70,13 @@ func frame_to_glass(frame_position: Vector2) -> Vector3:
 	return Vector3(c.r / c.b, c.g / c.b, c.b)
 
 
-## Whether a frame point is on the glass.
+## Whether a frame point is on the glass; for tests.
 func is_glass(frame_position: Vector2) -> bool:
 	return frame_to_glass(frame_position).z >= MIN_COVERAGE
 
 
-## Glass positions of the frame pixels on the glass edge: covered at least MIN_COVERAGE, not fully.
+## Glass positions of the frame pixels on the glass edge: covered at least MIN_COVERAGE, not fully; for
+## tests.
 func glass_edge() -> PackedVector2Array:
 	var image: Image = _pass
 	if image.get_format() != Image.FORMAT_RGBF:
@@ -111,6 +114,8 @@ func glass_to_frame(uv: Vector2) -> Vector2:
 				break
 			step /= 2.0
 		point -= step
+		if step.length() < CONVERGED:
+			break
 	# Newton lands within a pixel; the pass is per pixel, so pick the closest of the neighbours.
 	var best := Vector2(-1, -1)
 	var best_error: float = INF
@@ -126,16 +131,28 @@ func glass_to_frame(uv: Vector2) -> Vector2:
 	return best if best_error <= LANDING_TOLERANCE * LANDING_TOLERANCE else Vector2(-1, -1)
 
 
-## How the pass changes per frame pixel at a point, as a Transform2D basis; null off the glass.
+## How the pass changes per frame pixel at a point, as a Transform2D basis; null off the glass or where
+## the pass is flat. Near the right or bottom edge the slope is taken towards the left or up instead.
 func _slopes(point: Vector2) -> Variant:
 	var here: Vector3 = frame_to_glass(point)
-	var right: Vector3 = frame_to_glass(point + Vector2(SLOPE_STEP, 0))
-	var down: Vector3 = frame_to_glass(point + Vector2(0, SLOPE_STEP))
-	if here.z <= 0.0 or right.z <= 0.0 or down.z <= 0.0:
+	if here.z <= 0.0:
 		return null
-	var du := Vector2(right.x - here.x, down.x - here.x) / SLOPE_STEP
-	var dv := Vector2(right.y - here.y, down.y - here.y) / SLOPE_STEP
-	return Transform2D(Vector2(du.x, dv.x), Vector2(du.y, dv.y), Vector2.ZERO)
+	var columns: Array[Vector2] = []
+	for axis: Vector2 in [Vector2(SLOPE_STEP, 0), Vector2(0, SLOPE_STEP)]:
+		var offset: Vector2 = axis
+		var there: Vector3 = frame_to_glass(point + offset)
+		if there.z <= 0.0:
+			offset = -axis
+			there = frame_to_glass(point + offset)
+			if there.z <= 0.0:
+				return null
+		var change := Vector2(there.x - here.x, there.y - here.y)
+		columns.append(change / (offset.x + offset.y))
+	var jacobian := Transform2D(columns[0], columns[1], Vector2.ZERO)
+	# The pass changes by about 1e-3 per pixel, so the determinant is tiny but not zero on the glass.
+	if jacobian.determinant() == 0.0:
+		return null
+	return jacobian
 
 
 func _glass_center() -> Vector2:

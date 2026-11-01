@@ -52,7 +52,8 @@ godot --path . -- --windowed       # play in a window
   is meant, run `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.
 - Launch flags go after `--`: `--windowed`, `--frames=N` (quit after N frames), `--shots=<dir>`
   (save screenshots of fixed states, then quit).
-- Keys: F11 fullscreen/window. Debug builds only: F3 frame time overlay, F5 lamp mode (normal, flicker, off).
+- Keys: F11 fullscreen/window. Debug builds only: F3 frame time overlay, F5 lamp mode (normal, flicker, off),
+  F6 CRT strength (full, soft, off).
 - Final look and frame time are checked on Zhan's PC (RX 9070 XT, CachyOS, fish shell) over Remote Control.
   The minimum target is 1080p60 on a GTX 1060 class GPU.
 
@@ -115,7 +116,9 @@ It renders both view layers, writes everything listed in its docstring under `<d
 repo, and never saves the .blend. It checks the scene before rendering, refuses to run without `-b`,
 moves files into `<dir>` only when the whole export worked, and exits with 1 on any error. Always run `--preview` first (25%, 32 samples) and wait for Zhan's
 go before the full export. A full export goes straight into a clone of the repo (`--out <clone>`), then
-gets committed with Git LFS from that PC. After a new export, run the checks and update the goldens.
+gets committed with Git LFS from that PC. After a new export, run the checks and update the goldens. If
+the view transform or look changed, also rebake the inverse LUT with `tools/glass/bake_inverse_agx.py`
+(`test_agx_inverse` fails on a stale one).
 
 ## Code rules
 
@@ -159,8 +162,8 @@ gets committed with Git LFS from that PC. After a new export, run the checks and
   `.bin` read with `FileAccess`, so an export preset must list `assets/front/*.bin` in its non-resource
   filter.
 - The test reference is the exported layers summed and run through Blender AgX, not Cycles' Combined.
-- ND-OS renders in a 1280×960 SubViewport; a 1×1 SubViewport gives its average colour for the screen
-  light layer. Clicks reach ND-OS through the same UV pass with `SubViewport.push_input(event, true)`.
+- ND-OS renders in a 1280×960 SubViewport; a 1×1 SubViewport gives its mean linear luminance for the
+  screen light layer. Clicks reach ND-OS through the same UV pass with `SubViewport.push_input(event, true)`.
 
 ## Don't
 

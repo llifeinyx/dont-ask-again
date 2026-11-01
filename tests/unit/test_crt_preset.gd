@@ -29,3 +29,13 @@ func test_soft_halves_and_off_clears() -> void:
 		var off_value: float = off.get(property)
 		check(is_equal_approx(soft_value, full_value / 2.0), "soft %s is half of full" % property)
 		check_eq(off_value, 0.0, "off has no %s" % property)
+
+
+func test_every_property_reaches_the_shader() -> void:
+	var shader: Shader = load("res://game/glass/crt_picture.gdshader")
+	var uniforms: Array[String] = CrtPreset.uniforms_of(shader)
+	for property: Dictionary in CrtPreset.new().get_property_list():
+		var usage: int = property["usage"]
+		var property_name: String = property["name"]
+		if usage & PROPERTY_USAGE_SCRIPT_VARIABLE and property_name != "glow_blur":
+			check(property_name in uniforms, "%s is a uniform of crt_picture.gdshader" % property_name)

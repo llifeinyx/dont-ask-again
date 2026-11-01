@@ -16,11 +16,10 @@ func _map() -> GlassMap:
 	return GlassMap.load_default(manifest, fit)
 
 
-func test_view_to_frame_adds_the_margin_and_sway() -> void:
+func test_view_to_frame_adds_the_margin() -> void:
 	var map := _map()
 	check_eq(map.view_origin, Vector2i(128, 72), "the view sits in the middle of the frame")
-	check_eq(map.view_to_frame(Vector2(10, 20)), Vector2(138, 92), "no sway")
-	check_eq(map.view_to_frame(Vector2(10, 20), Vector2(-5, 3)), Vector2(133, 95), "with sway")
+	check_eq(map.view_to_frame(Vector2(10, 20)), Vector2(138, 92), "view to frame")
 
 
 func test_frame_to_ndos() -> void:
@@ -45,6 +44,23 @@ func test_round_trip_within_a_pixel() -> void:
 			var uv := Vector2(lerpf(inset.x, 1.0 - inset.x, float(x) / (GRID.x - 1)),
 				lerpf(inset.y, 1.0 - inset.y, float(y) / (GRID.y - 1)))
 			var frame: Vector2 = map.ndos_to_frame(uv)
+			if frame == Vector2(-1, -1):
+				check(false, "ND-OS %s: no frame pixel shows it" % [uv * ndos_size])
+				continue
 			var hit: Vector3 = map.frame_to_ndos(frame)
 			var error: float = (Vector2(hit.x, hit.y) - uv).length() * ndos_size.x
 			check(error <= 1.0, "ND-OS %s -> frame %s -> off by %.2f px" % [uv * ndos_size, frame, error])
+
+
+func test_hidden_points_have_no_frame_point() -> void:
+	var map := _map()
+	check_eq(map.ndos_to_frame(Vector2(0, 0)), Vector2(-1, -1), "the picture's corner is under the bezel")
+	check_eq(map.glass_to_frame(Vector2(-0.5, 0.5)), Vector2(-1, -1), "far outside the raster")
+
+
+func test_on_picture_bounds() -> void:
+	check(GlassMap.on_picture(Vector3(0.0, 0.0, 1.0)), "the first pixel")
+	check(not GlassMap.on_picture(Vector3(1.0, 0.5, 1.0)), "one past the last column")
+	check(not GlassMap.on_picture(Vector3(0.5, 1.0, 1.0)), "one past the last row")
+	check(not GlassMap.on_picture(Vector3(-0.001, 0.5, 1.0)), "left of the picture")
+	check(not GlassMap.on_picture(Vector3(0.5, 0.5, GlassMap.MIN_COVERAGE - 0.01)), "barely glass")
