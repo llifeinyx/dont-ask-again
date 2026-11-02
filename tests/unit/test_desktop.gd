@@ -101,5 +101,4 @@ func test_badges() -> void:
 ## The text on a program's count badge, or "" when the badge is hidden.
 func _badge_text(desktop: NdosDesktop, program: NdosDesktop.Program) -> String:
 	var badge: LauncherBadge = _slot(desktop, program).get_node("Content/Badge")
-	var text: Label = badge.get_node("Text")
-	return text.text if badge.visible and text.visible else ""
+	return badge.text() if badge.visible else ""

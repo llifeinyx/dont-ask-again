@@ -55,16 +55,16 @@ texture = ExtResource("3")
 [node name="Badge" parent="Content" instance=ExtResource("2")]
 visible = false
 layout_mode = 0
-offset_left = 66.0
-offset_top = -4.0
+offset_left = 64.0
+offset_top = -6.0
 offset_right = 90.0
-offset_bottom = 18.0
+offset_bottom = 20.0
 
 [node name="LockBadge" parent="Content" instance=ExtResource("2")]
 visible = false
 layout_mode = 0
-offset_left = 66.0
-offset_top = 46.0
+offset_left = 64.0
+offset_top = 44.0
 offset_right = 90.0
-offset_bottom = 68.0
+offset_bottom = 70.0
 kind = 2

@@ -1,11 +1,9 @@
 extends TestCase
-## Badge and eye pixels come from Figma's SVGs; their colours must be the Figma variables in NdosTokens.
+## Eye pixels come from Figma's SVG; their colours must be the Figma variables in NdosTokens.
 
 
-func test_badges_and_eye_use_the_variables() -> void:
+func test_eye_uses_the_variables() -> void:
 	_check_colors("eye_open", [NdosTokens.EYE_ON])
-	_check_colors("badge", [NdosTokens.BADGE_BG, NdosTokens.BADGE_LINE])
-	_check_colors("badge_alert", [NdosTokens.BADGE_RED, NdosTokens.BADGE_BG])
 
 
 func _check_colors(icon: String, allowed: Array[Color]) -> void:

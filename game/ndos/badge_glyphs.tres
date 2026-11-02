@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BadgeGlyphs" format=3]
+
+[ext_resource type="Script" path="res://game/ndos/badge_glyphs.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+glyphs = Dictionary[String, PackedStringArray]({
+"0": PackedStringArray(".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."),
+"1": PackedStringArray("..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."),
+"2": PackedStringArray(".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"),
+"3": PackedStringArray(".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."),
+"4": PackedStringArray("...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."),
+"5": PackedStringArray("#####", "#....", "####.", "....#", "....#", "#...#", ".###."),
+"6": PackedStringArray("..##.", ".#...", "#....", "####.", "#...#", "#...#", ".###."),
+"7": PackedStringArray("#####", "....#", "...#.", "..#..", "..#..", "..#..", "..#.."),
+"8": PackedStringArray(".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."),
+"9": PackedStringArray(".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."),
+"+": PackedStringArray(".....", ".....", "..#..", ".###.", "..#..", ".....", "....."),
+"!": PackedStringArray("#", "#", "#", "#", "#", ".", "#")
+})

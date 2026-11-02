@@ -5,4 +5,4 @@ extends Resource
 ## Mean linear luminance of the idle Desktop (the Figma mockup state), sampled the way
 ## game/glass/screen_average.gdshader does. That picture lights the room exactly as Blender rendered
 ## the screen layer; a brighter one lights it more.
-@export var average_reference: float = 0.012279
+@export var average_reference: float = 0.012906

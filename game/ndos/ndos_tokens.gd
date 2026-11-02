@@ -26,17 +26,19 @@ const ACCENT := Color("#cdac5c")
 const EYE_ON := Color("#dc463c")
 ## "eye/off"
 const EYE_OFF := Color("#968c78")
-## "badge/bg": the cream badge circle (drawn into icons/badge.png).
+## "badge/bg": the cream badge disc.
 const BADGE_BG := Color("#faf6ec")
-## "badge/red": ObServer's alert circle (drawn into icons/badge_alert.png).
+## "badge/red": ObServer's alert disc.
 const BADGE_RED := Color("#c83228")
-## "badge/line": the badge's pixel rim.
+## "badge/line": the count badge's pixel rim.
 const BADGE_LINE := Color("#6e6454")
 ## "dark"
 const DARK := Color("#3a3328")
 
 ## The Desktop frame, 640×480 logical at 2×; ND-OS renders at this size.
 const SCREEN_SIZE := Vector2i(1280, 960)
+## One pixel of ND-OS's pixel art, in rendered pixels.
+const ART_PIXEL: int = 2
 
 ## The top panel's background, top to bottom, in equal hard steps; the middle steps are raw fills.
 const TOP_PANEL_STEPS: Array[Color] = [
@@ -55,8 +57,6 @@ const WEIGHT_SEMIBOLD: int = 600
 const TITLE_SIZE: int = 16
 ## The clock in the top panel, Medium.
 const CLOCK_SIZE: int = 17
-## Numbers and "!" on launcher badges, SemiBold.
-const BADGE_SIZE: int = 15
 
 const LAUNCHER_PADDING_TOP: int = 12
 const LAUNCHER_SLOT_GAP: int = 8
@@ -75,3 +75,19 @@ const SLOT_HOVER_RADIUS: int = 8
 # Proposed in-game state that is not in Figma yet; Zhan may redraw it there.
 ## A pressed slot's icon and badge move down by one art pixel.
 const SLOT_PRESS_OFFSET: int = 2
+
+# Launcher badges, drawn as pixel art from game/ndos/badge_glyphs.tres; sizes in art pixels. Zhan chose
+# this badge on 2026-11-02 over Figma's 22 px circle with Pixelify digits, which fell off the art grid.
+## The disc's diameter: odd, so a single glyph centres on it.
+const BADGE_DISC: int = 13
+## The rim's width.
+const BADGE_RIM: int = 1
+## Clear art pixels between a glyph and the rim, at least, when the badge stretches into a pill.
+const BADGE_PILL_PADDING: int = 1
+## Clear art pixels between two glyphs.
+const BADGE_GLYPH_GAP: int = 1
+## Counts above this show as BADGE_MAX_COUNT with BADGE_OVERFLOW after it.
+const BADGE_MAX_COUNT: int = 99
+const BADGE_OVERFLOW := "+"
+## ObServer's alert.
+const BADGE_ALERT := "!"
