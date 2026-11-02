@@ -3,7 +3,23 @@ extends TestCase
 
 const DIGITS := "0123456789"
 ## Counts of one, two and three digits, and one past the largest the badge shows.
-const COUNTS: Array[int] = [1, 3, 8, 12, 99, 100, 150]
+const COUNTS: Array[int] = [1, 3, 8, 12, 25, 77, 99, 100, 150]
+## The 13-art-pixel disc as drawn: R rim, F fill.
+const DISC: Array[String] = [
+	"....RRRRR....",
+	"..RRFFFFFRR..",
+	".RFFFFFFFFFR.",
+	".RFFFFFFFFFR.",
+	"RFFFFFFFFFFFR",
+	"RFFFFFFFFFFFR",
+	"RFFFFFFFFFFFR",
+	"RFFFFFFFFFFFR",
+	"RFFFFFFFFFFFR",
+	".RFFFFFFFFFR.",
+	".RFFFFFFFFFR.",
+	"..RRFFFFFRR..",
+	"....RRRRR....",
+]
 
 
 func _glyphs() -> BadgeGlyphs:
@@ -33,36 +49,59 @@ func test_labels() -> void:
 	check_eq(LauncherBadge.label_for(LauncherBadge.Kind.COUNT, 150), "99+", "150 overflows")
 	check_eq(LauncherBadge.label_for(LauncherBadge.Kind.ALERT, 5), "!", "the alert ignores the count")
 	check_eq(LauncherBadge.label_for(LauncherBadge.Kind.LOCK, 5), "", "the padlock has no text")
+	check_eq(LauncherBadge.label_for(LauncherBadge.Kind.COUNT, -2), "0", "never a glyph that does not exist")
 
 
-func test_shape_holds_the_text_centred() -> void:
+func test_shape_holds_the_text_centred_and_clear_of_the_rim() -> void:
 	var glyphs := _glyphs()
+	var texts: Array[String] = [NdosTokens.BADGE_ALERT]
 	for count: int in COUNTS:
-		var text: String = LauncherBadge.label_for(LauncherBadge.Kind.COUNT, count)
+		texts.append(LauncherBadge.label_for(LauncherBadge.Kind.COUNT, count))
+	for text: String in texts:
 		var text_width: int = glyphs.text_width(text, NdosTokens.BADGE_GLYPH_GAP)
-		var width: int = LauncherBadge.width_for(text_width)
+		var width: int = LauncherBadge.width_for(text, glyphs)
 		check(width >= NdosTokens.BADGE_DISC, "%s: never narrower than the disc" % text)
 		check_eq((width - text_width) % 2, 0, "%s: centred on whole art pixels" % text)
 		var rows: PackedStringArray = LauncherBadge.shape(width)
 		check_eq(rows.size(), NdosTokens.BADGE_DISC, "%s: the disc's height" % text)
-		var left: int = floori((width - text_width) / 2.0)
-		var top: int = floori((NdosTokens.BADGE_DISC - glyphs.height()) / 2.0)
+		var corner: Vector2i = LauncherBadge.text_corner(text, glyphs, width)
+		var reach: int = NdosTokens.BADGE_PILL_PADDING
 		for pixel: Vector2i in glyphs.lit_pixels(text, NdosTokens.BADGE_GLYPH_GAP):
-			var at: Vector2i = pixel + Vector2i(left, top)
-			check_eq(rows[at.y][at.x], LauncherBadge.FILL, "%s: glyph pixel %s lies on the fill" % [text, at])
+			for dy: int in range(-reach, reach + 1):
+				for dx: int in range(-reach, reach + 1):
+					var at: Vector2i = corner + pixel + Vector2i(dx, dy)
+					check(at.y >= 0 and at.y < rows.size() and at.x >= 0 and at.x < width
+						and rows[at.y][at.x] == LauncherBadge.FILL,
+						"%s: fill around glyph pixel %s at %s" % [text, pixel, at])
 		for row: String in rows:
 			check_eq(row, row.reverse(), "%s: the shape is symmetric" % text)
+	check_eq(LauncherBadge.width_for("3", glyphs), NdosTokens.BADGE_DISC, "one digit fits the disc")
+	check_eq(LauncherBadge.width_for("", glyphs), NdosTokens.BADGE_DISC, "the padlock badge is the disc")
 
 
-func test_shape_is_a_disc_with_a_rim() -> void:
+func test_shape_is_the_disc_with_a_one_pixel_rim() -> void:
 	var rows: PackedStringArray = LauncherBadge.shape(NdosTokens.BADGE_DISC)
-	var middle: int = floori(NdosTokens.BADGE_DISC / 2.0)
-	check_eq(rows[middle][0], LauncherBadge.RIM, "rim on the left edge")
-	check_eq(rows[0][middle], LauncherBadge.RIM, "rim on the top edge")
-	check_eq(rows[0][0], LauncherBadge.OUTSIDE, "round corners")
-	check_eq(rows[middle][middle], LauncherBadge.FILL, "filled centre")
-	for row: int in rows.size():
-		check_eq(rows[row], rows[rows.size() - 1 - row], "the disc is symmetric top to bottom")
+	check_eq(Array(rows), DISC, "the disc")
+	for width: int in [NdosTokens.BADGE_DISC, NdosTokens.BADGE_DISC + 4, NdosTokens.BADGE_DISC + 10]:
+		var shape: PackedStringArray = LauncherBadge.shape(width)
+		for y: int in shape.size():
+			for x: int in width:
+				if shape[y][x] == LauncherBadge.OUTSIDE:
+					continue
+				var touches_outside: bool = false
+				for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+					var at: Vector2i = Vector2i(x, y) + step
+					touches_outside = touches_outside or at.x < 0 or at.y < 0 or at.x >= width \
+						or at.y >= shape.size() or shape[at.y][at.x] == LauncherBadge.OUTSIDE
+				check_eq(shape[y][x] == LauncherBadge.RIM, touches_outside,
+					"width %d, %s: rim exactly where the shape meets the outside" % [width, Vector2i(x, y)])
+
+
+func test_colours() -> void:
+	check_eq(LauncherBadge.colors_for(LauncherBadge.Kind.COUNT),
+		PackedColorArray([NdosTokens.BADGE_BG, NdosTokens.BADGE_LINE, NdosTokens.DARK]), "count: fill, rim, ink")
+	check_eq(LauncherBadge.colors_for(LauncherBadge.Kind.ALERT),
+		PackedColorArray([NdosTokens.BADGE_RED, NdosTokens.BADGE_BG, NdosTokens.PANEL_TEXT]), "alert: fill, rim, ink")
 
 
 func test_badges_sit_on_the_art_grid_unclipped() -> void:

@@ -34,19 +34,45 @@ static func label_for(badge_kind: Kind, badge_count: int) -> String:
 			return ""
 	if badge_count > NdosTokens.BADGE_MAX_COUNT:
 		return str(NdosTokens.BADGE_MAX_COUNT) + NdosTokens.BADGE_OVERFLOW
-	return str(badge_count)
+	# A slot hides its badge at 0; a negative count would have no glyph.
+	return str(maxi(badge_count, 0))
 
 
-## The badge's width in art pixels for a text this many art pixels wide: the disc, or a pill around the
-## text that leaves it centred.
-static func width_for(text_width: int) -> int:
+## The badge's width in art pixels for a text: the disc, or a pill around the text that leaves it
+## centred with BADGE_PILL_PADDING clear fill around it, the rounded ends included.
+static func width_for(label: String, glyph_set: BadgeGlyphs) -> int:
+	var text_width: int = glyph_set.text_width(label, NdosTokens.BADGE_GLYPH_GAP)
 	if text_width == 0:
 		return NdosTokens.BADGE_DISC
 	var width: int = maxi(NdosTokens.BADGE_DISC,
 		text_width + 2 * (NdosTokens.BADGE_RIM + NdosTokens.BADGE_PILL_PADDING))
 	if (width - text_width) % 2 == 1:
 		width += 1
+	# Two art pixels at a time keep the label centred.
+	while not _text_clear(label, glyph_set, width):
+		width += 2
 	return width
+
+
+## Where a text's top-left art pixel sits in a badge this many art pixels wide.
+static func text_corner(label: String, glyph_set: BadgeGlyphs, width: int) -> Vector2i:
+	var text_width: int = glyph_set.text_width(label, NdosTokens.BADGE_GLYPH_GAP)
+	# The room around the label is even, and the disc and the glyphs are both odd in height.
+	return Vector2i(floori((width - text_width) / 2.0), floori((NdosTokens.BADGE_DISC - glyph_set.height()) / 2.0))
+
+
+## Whether every glyph box of a text has only fill within BADGE_PILL_PADDING of it, diagonals included.
+## Whole boxes rather than lit pixels, so every count with the same number of digits gets one width.
+static func _text_clear(label: String, glyph_set: BadgeGlyphs, width: int) -> bool:
+	var rows: PackedStringArray = shape(width)
+	var corner: Vector2i = text_corner(label, glyph_set, width)
+	var reach: int = NdosTokens.BADGE_PILL_PADDING
+	var box := Vector2i(glyph_set.text_width(label, NdosTokens.BADGE_GLYPH_GAP), glyph_set.height())
+	for y: int in range(corner.y - reach, corner.y + box.y + reach):
+		for x: int in range(corner.x - reach, corner.x + box.x + reach):
+			if x < 0 or y < 0 or x >= width or y >= rows.size() or rows[y][x] != FILL:
+				return false
+	return true
 
 
 ## The badge's shape, one string per row of art pixels: RIM, FILL or OUTSIDE. A pill is the disc cut
@@ -58,13 +84,28 @@ static func shape(width: int) -> PackedStringArray:
 		for column: int in width:
 			if not _inside(column, row, width):
 				line += OUTSIDE
-			elif _inside(column - 1, row, width) and _inside(column + 1, row, width) and _inside(column, row - 1, width) \
-					and _inside(column, row + 1, width):
+			elif _deep_inside(column, row, width):
 				line += FILL
 			else:
 				line += RIM
 		rows.append(line)
 	return rows
+
+
+## Whether every art pixel within BADGE_RIM of this one, straight across or down, is inside the badge.
+static func _deep_inside(column: int, row: int, width: int) -> bool:
+	for step: int in range(1, NdosTokens.BADGE_RIM + 1):
+		if not (_inside(column - step, row, width) and _inside(column + step, row, width)
+				and _inside(column, row - step, width) and _inside(column, row + step, width)):
+			return false
+	return true
+
+
+## The fill, rim and ink colours of a badge.
+static func colors_for(badge_kind: Kind) -> PackedColorArray:
+	if badge_kind == Kind.ALERT:
+		return PackedColorArray([NdosTokens.BADGE_RED, NdosTokens.BADGE_BG, NdosTokens.PANEL_TEXT])
+	return PackedColorArray([NdosTokens.BADGE_BG, NdosTokens.BADGE_LINE, NdosTokens.DARK])
 
 
 ## Whether an art pixel's centre lies inside a badge this many art pixels wide.
@@ -91,7 +132,7 @@ func text() -> String:
 ## The drawn badge in the control's coordinates; a pill reaches left of the control.
 func drawn_rect() -> Rect2:
 	var art := float(NdosTokens.ART_PIXEL)
-	var width: int = width_for(glyphs.text_width(text(), NdosTokens.BADGE_GLYPH_GAP))
+	var width: int = width_for(text(), glyphs)
 	return Rect2((NdosTokens.BADGE_DISC - width) * art, 0.0, width * art, NdosTokens.BADGE_DISC * art)
 
 
@@ -110,21 +151,18 @@ func _update() -> void:
 func _draw() -> void:
 	var art := float(NdosTokens.ART_PIXEL)
 	var label: String = text()
-	var text_width: int = glyphs.text_width(label, NdosTokens.BADGE_GLYPH_GAP)
-	var width: int = width_for(text_width)
+	var width: int = width_for(label, glyphs)
 	var origin := Vector2(drawn_rect().position.x, 0.0)
-	var alert: bool = kind == Kind.ALERT
-	var fill: Color = NdosTokens.BADGE_RED if alert else NdosTokens.BADGE_BG
-	var rim: Color = NdosTokens.BADGE_BG if alert else NdosTokens.BADGE_LINE
-	var ink: Color = NdosTokens.PANEL_TEXT if alert else NdosTokens.DARK
+	var colors: PackedColorArray = colors_for(kind)
+	var fill: Color = colors[0]
+	var rim: Color = colors[1]
+	var ink: Color = colors[2]
 	var rows: PackedStringArray = shape(width)
 	for row: int in rows.size():
 		for column: int in rows[row].length():
 			var pixel: String = rows[row][column]
 			if pixel != OUTSIDE:
 				draw_rect(Rect2(origin + Vector2(column, row) * art, Vector2(art, art)), rim if pixel == RIM else fill)
-	# width_for() keeps the room around the text even, and the disc and glyphs are both odd in height.
-	var corner := Vector2i(floori((width - text_width) / 2.0),
-		floori((NdosTokens.BADGE_DISC - glyphs.height()) / 2.0))
+	var corner: Vector2i = text_corner(label, glyphs, width)
 	for pixel: Vector2i in glyphs.lit_pixels(label, NdosTokens.BADGE_GLYPH_GAP):
 		draw_rect(Rect2(origin + Vector2(corner + pixel) * art, Vector2(art, art)), ink)
