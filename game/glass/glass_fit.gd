@@ -12,7 +12,8 @@ const HALF := Vector2(0.5, 0.5)
 ## The tube outside the picture.
 @export var phosphor_black: Color = Color("#050505")
 ## Size of the tube's picture drawn over the glass: about the glass's size in the frame, so the picture
-## is resampled once at the density the player sees.
+## is resampled once at the density the player sees. Today it only places ND-OS; it is the pass a new
+## tube look will draw into.
 @export var picture_size: Vector2i = Vector2i(1600, 1200)
 
 

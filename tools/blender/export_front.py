@@ -172,7 +172,7 @@ def check_scene(scene: bpy.types.Scene) -> list:
 	else:
 		problems += uv_orientation_problems(glass)
 		problems += uv_raster_problems(glass)
-	problems += missing_image_problems()
+	problems += missing_image_problems(scene)
 	if bpy.data.materials.get(GLASS_MATERIAL) is None:
 		problems.append(f"material {GLASS_MATERIAL} is missing")
 	else:
@@ -184,22 +184,44 @@ def check_scene(scene: bpy.types.Scene) -> list:
 	return problems
 
 
-def missing_image_problems() -> list:
-	"""Cycles renders a missing image texture magenta, so an image a material uses must load. Relative
-	paths break when a .blend is copied to another folder instead of saved there."""
-	problems = []
-	for material in bpy.data.materials:
-		if material.users == 0 or not material.use_nodes:
+def missing_image_problems(scene: bpy.types.Scene) -> list:
+	"""Cycles renders a missing image texture magenta, so every image the render uses must load: in the
+	materials of the scene's objects, the world and the lights, node groups included. Relative paths
+	break when a .blend is copied to another folder instead of saved there; packed images are fine."""
+	trees = [(slot.material.node_tree, f"material {slot.material.name}") for obj in scene.objects
+		for slot in obj.material_slots if slot.material is not None and slot.material.node_tree is not None]
+	if scene.world is not None and scene.world.node_tree is not None:
+		trees.append((scene.world.node_tree, f"world {scene.world.name}"))
+	trees += [(obj.data.node_tree, f"light {obj.name}") for obj in scene.objects
+		if obj.type == "LIGHT" and obj.data.node_tree is not None]
+	images = {}
+	seen = set()
+	while trees:
+		tree, user = trees.pop()
+		# Embedded material trees all share one name, so they are told apart by identity.
+		if tree.as_pointer() in seen:
 			continue
-		for node in material.node_tree.nodes:
+		seen.add(tree.as_pointer())
+		for node in tree.nodes:
+			if getattr(node, "node_tree", None) is not None:
+				trees.append((node.node_tree, user))
 			image = getattr(node, "image", None)
-			if image is None or image.source != "FILE":
-				continue
+			if image is not None:
+				images.setdefault(image.name_full, (image, user))
+	problems = []
+	for image, user in images.values():
+		if image.source in ("GENERATED", "VIEWER"):
+			continue
+		if image.source != "FILE":
+			problems.append(f"{user}: image {image.name} is a {image.source} image, which the export does not check")
+			continue
+		if image.packed_file is None:
 			path = bpy.path.abspath(image.filepath, library=image.library)
 			if not os.path.isfile(path):
-				problems.append(f"material {material.name}: image {image.name} is missing ({image.filepath} -> {path})")
-			elif image.size[0] == 0:
-				problems.append(f"material {material.name}: image {image.name} does not load ({path})")
+				problems.append(f"{user}: image {image.name} is missing ({image.filepath} -> {path})")
+				continue
+		if image.size[0] == 0:
+			problems.append(f"{user}: image {image.name} does not load ({image.filepath})")
 	return problems
 
 
