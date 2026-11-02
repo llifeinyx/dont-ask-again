@@ -172,6 +172,7 @@ def check_scene(scene: bpy.types.Scene) -> list:
 	else:
 		problems += uv_orientation_problems(glass)
 		problems += uv_raster_problems(glass)
+	problems += missing_image_problems()
 	if bpy.data.materials.get(GLASS_MATERIAL) is None:
 		problems.append(f"material {GLASS_MATERIAL} is missing")
 	else:
@@ -180,6 +181,25 @@ def check_scene(scene: bpy.types.Scene) -> list:
 			and any(slot.material and slot.material.name == GLASS_MATERIAL for slot in o.material_slots)]
 		if users != [GLASS_OBJECT]:
 			problems.append(f"material {GLASS_MATERIAL} must be used by {GLASS_OBJECT} only, not {users}")
+	return problems
+
+
+def missing_image_problems() -> list:
+	"""Cycles renders a missing image texture magenta, so an image a material uses must load. Relative
+	paths break when a .blend is copied to another folder instead of saved there."""
+	problems = []
+	for material in bpy.data.materials:
+		if material.users == 0 or not material.use_nodes:
+			continue
+		for node in material.node_tree.nodes:
+			image = getattr(node, "image", None)
+			if image is None or image.source != "FILE":
+				continue
+			path = bpy.path.abspath(image.filepath, library=image.library)
+			if not os.path.isfile(path):
+				problems.append(f"material {material.name}: image {image.name} is missing ({image.filepath} -> {path})")
+			elif image.size[0] == 0:
+				problems.append(f"material {material.name}: image {image.name} does not load ({path})")
 	return problems
 
 
