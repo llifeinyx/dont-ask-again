@@ -42,7 +42,7 @@ godot --path . -- --windowed       # play in a window
   to BC6H on the GPU in seconds, while `--headless` falls back to the CPU and takes over ten minutes.
 - The boot step renders at 2560×1440 and saves `shots/boot.png`.
 - Screenshot scenes in `tests/shots/` save fixed states (front: lamp on, flickering, off; ND-OS: idle, slot
-  hovered, slot pressed; glass, ND-OS on the front frame: CRT full, soft, off, and lamp off). Glass shots
+  hovered, slot pressed; glass, ND-OS on the front frame: lamp on and off). Glass shots
   have goldens only, compared like the front. `tests/compare_shots.gd` compares each with `tests/reference/` when one exists
   (full size: `front_*` from Blender, `ndos_*` from Figma, each source with its own limits) and with
   `tests/golden/` (front at quarter size; ND-OS at full size with strict limits, since it renders the same
@@ -52,8 +52,7 @@ godot --path . -- --windowed       # play in a window
   is meant, run `UPDATE_GOLDEN=1 tools/check.sh`, look at the new goldens and commit them with the change.
 - Launch flags go after `--`: `--windowed`, `--frames=N` (quit after N frames), `--shots=<dir>`
   (save screenshots of fixed states, then quit).
-- Keys: F11 fullscreen/window. Debug builds only: F3 frame time overlay, F5 lamp mode (normal, flicker, off),
-  F6 CRT strength (full, soft, off).
+- Keys: F11 fullscreen/window. Debug builds only: F3 frame time overlay, F5 lamp mode (normal, flicker, off).
 - Final look and frame time are checked on Zhan's PC (RX 9070 XT, CachyOS, fish shell) over Remote Control.
   The minimum target is 1080p60 on a GTX 1060 class GPU.
 
@@ -71,7 +70,7 @@ game/
   main/            entry scene, window and scaling
   front/           the front frame: composite and view shaders, FrontLighting, lighting presets, flicker
   ndos/            ND-OS desktop: top panel, launcher slots, badges, shift clock, NdosTokens
-  glass/           the CRT tube: CRT picture and presets (F6), GlassFit, GlassMap (mouse through the glass)
+  glass/           the CRT tube: ND-OS on the curved glass (GlassFit), GlassMap (mouse through the glass)
   shaders/         shader includes shared by several scenes
 tests/
   test_case.gd     base class for unit tests

@@ -9,9 +9,9 @@ const HALF := Vector2(0.5, 0.5)
 
 ## Share of the raster the picture spans along each axis; 1 fills it exactly.
 @export_range(0.5, 1.5) var picture_scale: float = 1.0
-## The tube outside the picture: the Figma CRT frame's background.
+## The tube outside the picture.
 @export var phosphor_black: Color = Color("#050505")
-## Size of the CRT picture drawn over the glass: about the glass's size in the frame, so the picture
+## Size of the tube's picture drawn over the glass: about the glass's size in the frame, so the picture
 ## is resampled once at the density the player sees.
 @export var picture_size: Vector2i = Vector2i(1600, 1200)
 

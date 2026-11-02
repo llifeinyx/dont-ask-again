@@ -1,25 +1,15 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://game/glass/glass.gd" id="1"]
-[ext_resource type="Resource" path="res://game/glass/presets/full.tres" id="2"]
-[ext_resource type="Resource" path="res://game/glass/presets/soft.tres" id="3"]
-[ext_resource type="Resource" path="res://game/glass/presets/off.tres" id="4"]
-[ext_resource type="Shader" path="res://game/glass/glow_blur.gdshader" id="5"]
-[ext_resource type="Shader" path="res://game/glass/crt_picture.gdshader" id="6"]
-[ext_resource type="Shader" path="res://game/glass/screen_average.gdshader" id="7"]
-[ext_resource type="Resource" path="res://game/glass/fit.tres" id="8"]
+[ext_resource type="Shader" path="res://game/glass/glass_picture.gdshader" id="2"]
+[ext_resource type="Shader" path="res://game/glass/screen_average.gdshader" id="3"]
+[ext_resource type="Resource" path="res://game/glass/fit.tres" id="4"]
 
-[sub_resource type="ShaderMaterial" id="blur_across"]
-shader = ExtResource("5")
-
-[sub_resource type="ShaderMaterial" id="blur_down"]
-shader = ExtResource("5")
-
-[sub_resource type="ShaderMaterial" id="crt"]
-shader = ExtResource("6")
+[sub_resource type="ShaderMaterial" id="tube"]
+shader = ExtResource("2")
 
 [sub_resource type="ShaderMaterial" id="mean"]
-shader = ExtResource("7")
+shader = ExtResource("3")
 
 [node name="Glass" type="Control"]
 layout_mode = 3
@@ -29,43 +19,14 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
-full = ExtResource("2")
-soft = ExtResource("3")
-off = ExtResource("4")
-fit = ExtResource("8")
-
-[node name="GlowAcross" type="SubViewport" parent="."]
-size = Vector2i(1280, 960)
-render_target_update_mode = 4
-
-[node name="Blur" type="ColorRect" parent="GlowAcross"]
-material = SubResource("blur_across")
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="GlowDown" type="SubViewport" parent="."]
-size = Vector2i(1280, 960)
-render_target_update_mode = 4
-
-[node name="Blur" type="ColorRect" parent="GlowDown"]
-material = SubResource("blur_down")
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
+fit = ExtResource("4")
 
 [node name="Picture" type="SubViewport" parent="."]
 size = Vector2i(1600, 1200)
 render_target_update_mode = 4
 
-[node name="Crt" type="ColorRect" parent="Picture"]
-material = SubResource("crt")
+[node name="Tube" type="ColorRect" parent="Picture"]
+material = SubResource("tube")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

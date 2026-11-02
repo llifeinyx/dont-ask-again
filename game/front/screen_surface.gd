@@ -1,7 +1,7 @@
 class_name ScreenSurface
 extends Resource
 ## The lit glass when ND-OS is on it: how bright the screen light layer is for a given picture, and the
-## lamp's soft highlight on the tube (Figma "ND-OS Desktop / CRT", layer "Lamp reflection").
+## lamp's soft highlight on the tube.
 
 ## Mean linear luminance of the idle Desktop (the Figma mockup state), sampled the way
 ## game/glass/screen_average.gdshader does. That picture lights the room exactly as Blender rendered

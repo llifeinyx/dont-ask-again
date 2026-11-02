@@ -1,7 +1,7 @@
 extends Node
 ## Screenshots of the front frame with ND-OS on the glass, for tests/compare_shots.gd:
 ##   godot --path . res://tests/shots/glass_shots.tscn -- --shots=<dir>
-## ND-OS shows the mockup state (NdosMockup); the CRT noise and the lamp stand still.
+## ND-OS shows the mockup state (NdosMockup); the lamp stands still.
 
 ## Frames to let the renderer settle before a screenshot; the picture passes through several viewports.
 const SETTLE_FRAMES: int = 5
@@ -20,18 +20,10 @@ func _ready() -> void:
 	var manifest: FrontManifest = load(FrontFrame.MANIFEST_PATH)
 	_shot.size = manifest.view_size
 	_lighting.process_mode = Node.PROCESS_MODE_DISABLED
-	_view.glass.process_mode = Node.PROCESS_MODE_DISABLED
-	_view.glass.noise_seed = 0.0
 	NdosMockup.apply(_view.desktop)
 	DirAccess.make_dir_recursive_absolute(options.shots_dir)
 	_lighting.mode = FrontLighting.Mode.NORMAL
-	var strengths: Dictionary[String, Glass.Strength] = {
-		"glass_full": Glass.Strength.FULL, "glass_soft": Glass.Strength.SOFT, "glass_off": Glass.Strength.OFF,
-	}
-	for shot_name: String in strengths:
-		_view.glass.strength = strengths[shot_name]
-		await _save(options.shots_dir, shot_name)
-	_view.glass.strength = Glass.Strength.FULL
+	await _save(options.shots_dir, "glass_normal")
 	_lighting.mode = FrontLighting.Mode.LAMP_OFF
 	await _save(options.shots_dir, "glass_lamp_off")
 	get_tree().quit()

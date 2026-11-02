@@ -1,7 +1,7 @@
 class_name GlassMap
 extends RefCounted
 ## Where ND-OS sits on the glass, from the same glass UV pass the front frame draws with and the same
-## GlassFit the CRT picture is bent by, so clicks and the picture never disagree. The pass holds
+## GlassFit the tube's picture is placed by, so clicks and the picture never disagree. The pass holds
 ## (u·m, v·m, m) per frame pixel: the glass position (0..1, top-left origin) times the glass coverage m.
 
 ## A frame pixel counts as glass when at least this much of it is covered.

@@ -30,7 +30,7 @@ uniform vec4 mug_rect;
 uniform sampler2D glass_uv : filter_nearest, repeat_disable;
 // 0 keeps the dark glass Blender rendered; 1 shows the picture and the lamp's highlight on it.
 uniform float glass_on = 0.0;
-// The CRT picture over the glass UV in display sRGB; it is turned back into light so AgX shows its own
+// The tube's picture over the glass UV in display sRGB; it is turned back into light so AgX shows its own
 // colours.
 uniform sampler2D screen_picture : filter_linear, repeat_disable;
 // The view's exposure in stops, undone for the picture.
