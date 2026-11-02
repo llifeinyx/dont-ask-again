@@ -1,6 +1,6 @@
 shader_type canvas_item;
-// The front frame in linear light: every Blender light layer times its strength, the picture on the glass
-// with the lamp's highlight, the mug over the room by its coverage. Draws into an HDR viewport;
+// The front frame in linear light: every Blender light layer times its strength, the picture on the glass,
+// the mug over the room by its coverage. Draws into an HDR viewport;
 // front_view.gdshader turns the result into display colour.
 
 #include "res://game/shaders/agx_punchy_inverse.gdshaderinc"
@@ -28,7 +28,7 @@ uniform vec4 mug_rect;
 
 // Glass UV pass: (u·m, v·m, m), the position on the glass times the glass coverage.
 uniform sampler2D glass_uv : filter_nearest, repeat_disable;
-// 0 keeps the dark glass Blender rendered; 1 shows the picture and the lamp's highlight on it.
+// 0 keeps the dark glass Blender rendered; 1 shows the picture on it.
 uniform float glass_on = 0.0;
 // The tube's picture over the glass UV in display sRGB; it is turned back into light so AgX shows its own
 // colours.
@@ -40,11 +40,6 @@ uniform float exposure = 0.0;
 uniform float average_on = 0.0;
 uniform sampler2D screen_average : filter_nearest, repeat_disable;
 uniform float average_reference = 1.0;
-// The lamp's highlight: an ellipse in glass UV (top-left corner and size), its linear colour, and its
-// linear strength at full lamp.
-uniform vec4 reflection_rect;
-uniform vec3 reflection_color;
-uniform float reflection_strength;
 
 void fragment() {
 	float screen_light = screen;
@@ -60,11 +55,9 @@ void fragment() {
 	if (glass_on > 0.5 && glass.b > 0.0) {
 		vec2 tube_uv = glass.rg / glass.b;
 		vec3 emission = agx_punchy_inverse(texture(screen_picture, tube_uv).rgb) / exp2(exposure);
-		vec2 from_center = (tube_uv - reflection_rect.xy) / reflection_rect.zw * 2.0 - 1.0;
-		vec3 highlight = lamp * reflection_color * reflection_strength * max(1.0 - length(from_center), 0.0);
 		// The lit picture replaces the dark glass Blender rendered: the glass reflects nothing (design
 		// doc §9.2), so the screen stays the most contrasty place in the frame.
-		light = mix(light, emission + highlight, glass.b);
+		light = mix(light, emission, glass.b);
 	}
 	vec2 mug_uv = (UV - mug_rect.xy) / mug_rect.zw;
 	if (all(greaterThanEqual(mug_uv, vec2(0.0))) && all(lessThan(mug_uv, vec2(1.0)))) {
