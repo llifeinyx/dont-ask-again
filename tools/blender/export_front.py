@@ -6,7 +6,7 @@ Writes under <dir>, laid out like the repository:
     assets/front/<group>.exr          room light groups, linear, half float, ZIP
     assets/front/mug_<group>.exr      the mug's light groups, premultiplied, cropped to the mug
     assets/front/mug_alpha.exr        the mug's coverage, in every channel, same crop
-    assets/front/glass_uv.exr         (u*m, v*m, m): ND-OS position on the glass (top-left origin)
+    assets/front/glass_uv.exr         (u*m, v*m, m): position in the tube's lit raster (top-left origin)
                                       times glass coverage m, 32-bit float
     assets/front/agx_punchy_65.bin    the scene's view transform and look baked into a 3D LUT
     assets/front/manifest.tres        sizes, mug position and exposure, read by the game
@@ -34,7 +34,7 @@ MAIN_LAYER = "ViewLayer"
 MUG_LAYER = "Mug"
 GLASS_OBJECT = "CRT_Glass"
 GLASS_MATERIAL = "PC_Glass"
-GLASS_UV_MAP = "UV_Flat"
+GLASS_UV_MAP = "UV_Raster"
 UV_AOV = "ndos_uv"
 
 # The player sees the frame without its 5% margin on each side; the margin is room for camera sway.
@@ -171,6 +171,8 @@ def check_scene(scene: bpy.types.Scene) -> list:
 		problems.append(f"{GLASS_OBJECT} has no UV map {GLASS_UV_MAP}")
 	else:
 		problems += uv_orientation_problems(glass)
+		problems += uv_raster_problems(glass)
+	problems += missing_image_problems(scene)
 	if bpy.data.materials.get(GLASS_MATERIAL) is None:
 		problems.append(f"material {GLASS_MATERIAL} is missing")
 	else:
@@ -182,8 +184,51 @@ def check_scene(scene: bpy.types.Scene) -> list:
 	return problems
 
 
+def missing_image_problems(scene: bpy.types.Scene) -> list:
+	"""Cycles renders a missing image texture magenta, so every image the render uses must load: in the
+	materials of the scene's objects, the world and the lights, node groups included. Relative paths
+	break when a .blend is copied to another folder instead of saved there; packed images are fine."""
+	trees = [(slot.material.node_tree, f"material {slot.material.name}") for obj in scene.objects
+		for slot in obj.material_slots if slot.material is not None and slot.material.node_tree is not None]
+	if scene.world is not None and scene.world.node_tree is not None:
+		trees.append((scene.world.node_tree, f"world {scene.world.name}"))
+	trees += [(obj.data.node_tree, f"light {obj.name}") for obj in scene.objects
+		if obj.type == "LIGHT" and obj.data.node_tree is not None]
+	images = {}
+	seen = set()
+	while trees:
+		tree, user = trees.pop()
+		# Embedded material trees all share one name, so they are told apart by identity.
+		if tree.as_pointer() in seen:
+			continue
+		seen.add(tree.as_pointer())
+		for node in tree.nodes:
+			if getattr(node, "node_tree", None) is not None:
+				trees.append((node.node_tree, user))
+			image = getattr(node, "image", None)
+			if image is not None:
+				images.setdefault(image.name_full, (image, user))
+	problems = []
+	for image, user in images.values():
+		if image.source in ("GENERATED", "VIEWER"):
+			continue
+		if image.source != "FILE":
+			problems.append(f"{user}: image {image.name} is a {image.source} image, which the export does not check")
+			continue
+		if image.packed_file is None:
+			path = bpy.path.abspath(image.filepath, library=image.library)
+			if not os.path.isfile(path):
+				problems.append(f"{user}: image {image.name} is missing ({image.filepath} -> {path})")
+				continue
+		if image.size[0] == 0:
+			problems.append(f"{user}: image {image.name} does not load ({image.filepath})")
+	return problems
+
+
 def add_glass_uv_aov(scene: bpy.types.Scene) -> tuple:
-	"""Makes the glass write its ND-OS position into an AOV: u right, v down, from 0 to 1 over the mesh."""
+	"""Makes the glass write its raster position into an AOV: u right, v down. UV 0..1 is the lit raster,
+	unwrapped along the curved glass; the mesh reaches a little past it, under the bezel. The game's
+	GlassFit places ND-OS in the raster."""
 	glass = bpy.data.objects[GLASS_OBJECT]
 	mesh = glass.data
 	uv_layer = mesh.uv_layers[GLASS_UV_MAP]
@@ -204,8 +249,8 @@ def add_glass_uv_aov(scene: bpy.types.Scene) -> tuple:
 	uv.uv_map = GLASS_UV_MAP
 	split = tree.nodes.new("ShaderNodeSeparateXYZ")
 	tree.links.new(uv.outputs["UV"], split.inputs[0])
-	u = map_range(tree, split.outputs["X"], u_min, u_max, 0.0, 1.0)
-	v = map_range(tree, split.outputs["Y"], v_min, v_max, 1.0, 0.0)
+	u = split.outputs["X"]
+	v = map_range(tree, split.outputs["Y"], 0.0, 1.0, 1.0, 0.0)
 	join = tree.nodes.new("ShaderNodeCombineXYZ")
 	tree.links.new(u, join.inputs["X"])
 	tree.links.new(v, join.inputs["Y"])
@@ -243,6 +288,17 @@ def uv_orientation_problems(glass: bpy.types.Object) -> list:
 	if a.x < b.x and a.y > b.y:
 		return []
 	return [f"{GLASS_UV_MAP} is not oriented u right, v up: top-left {tuple(a)}, bottom-right {tuple(b)}"]
+
+
+def uv_raster_problems(glass: bpy.types.Object) -> list:
+	"""UV 0..1 is the lit raster; the glass must reach past it on every side, so no edge of it shows."""
+	uv_layer = glass.data.uv_layers[GLASS_UV_MAP]
+	uvs = np.empty(len(uv_layer.data) * 2, np.float32)
+	uv_layer.data.foreach_get("uv", uvs)
+	uvs = uvs.reshape(-1, 2)
+	if (uvs.min(0) < 0.0).all() and (uvs.max(0) > 1.0).all():
+		return []
+	return [f"{GLASS_UV_MAP} must reach past 0..1 on every side, spans {uvs.min(0)}..{uvs.max(0)}"]
 
 
 def render_layers(scene: bpy.types.Scene, raw: str, scale: float) -> None:
@@ -423,7 +479,7 @@ def mug_crop(alpha: np.ndarray) -> tuple:
 
 
 def write_glass_uv_report(assets: str) -> tuple:
-	"""Part of ND-OS seen through the glass, as (u, v, width, height); the rest hides under the bezel."""
+	"""Part of the raster seen through the glass, as (u, v, width, height); the rest hides under the bezel."""
 	uv = read_exr(os.path.join(assets, "glass_uv.exr"))
 	inside = uv[..., 2] > 0.999
 	if not inside.any():
@@ -431,7 +487,7 @@ def write_glass_uv_report(assets: str) -> tuple:
 	u = uv[..., 0][inside] / uv[..., 2][inside]
 	v = uv[..., 1][inside] / uv[..., 2][inside]
 	visible = (float(u.min()), float(v.min()), float(u.max() - u.min()), float(v.max() - v.min()))
-	log("ND-OS visible through the glass: u %.4f..%.4f, v %.4f..%.4f" % (u.min(), u.max(), v.min(), v.max()))
+	log("Raster visible through the glass: u %.4f..%.4f, v %.4f..%.4f" % (u.min(), u.max(), v.min(), v.max()))
 	return visible
 
 

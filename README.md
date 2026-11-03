@@ -8,7 +8,8 @@ A horror game about one long night shift at a CRT terminal. Godot 4.7.2, Forward
 2. `git lfs install && git clone https://github.com/llifeinyx/dont-ask-again && cd dont-ask-again`
 3. Open `project.godot` in Godot, or run `godot --path . -- --windowed`.
 
-F11 switches between fullscreen and a window. F3 shows frame time in debug builds.
+F11 switches between fullscreen and a window. In debug builds F3 shows frame time and F5 cycles the lamp
+(normal, flicker, off).
 
 ## Checks
 

@@ -1,0 +1,49 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://game/glass/glass.gd" id="1"]
+[ext_resource type="Shader" path="res://game/glass/glass_picture.gdshader" id="2"]
+[ext_resource type="Shader" path="res://game/glass/screen_average.gdshader" id="3"]
+[ext_resource type="Resource" path="res://game/glass/fit.tres" id="4"]
+
+[sub_resource type="ShaderMaterial" id="tube"]
+shader = ExtResource("2")
+
+[sub_resource type="ShaderMaterial" id="mean"]
+shader = ExtResource("3")
+
+[node name="Glass" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+fit = ExtResource("4")
+
+[node name="Picture" type="SubViewport" parent="."]
+size = Vector2i(1600, 1200)
+render_target_update_mode = 4
+
+[node name="Tube" type="ColorRect" parent="Picture"]
+material = SubResource("tube")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Average" type="SubViewport" parent="."]
+use_hdr_2d = true
+size = Vector2i(1, 1)
+render_target_update_mode = 4
+
+[node name="Mean" type="ColorRect" parent="Average"]
+material = SubResource("mean")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

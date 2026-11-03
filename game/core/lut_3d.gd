@@ -34,9 +34,25 @@ static func load_file(path: String) -> Lut3D:
 	return lut
 
 
-## Sets the uniforms of game/shaders/agx_punchy.gdshaderinc.
-func apply_to(material: ShaderMaterial) -> void:
-	material.set_shader_parameter("agx_lut", texture)
-	material.set_shader_parameter("agx_lut_lo", lo)
-	material.set_shader_parameter("agx_lut_hi", hi)
-	material.set_shader_parameter("agx_lut_size", float(size))
+## Sets the uniforms <prefix>, <prefix>_lo, <prefix>_hi and <prefix>_size, as the includes in
+## game/shaders/ name them.
+func apply_to(material: ShaderMaterial, prefix: String = "agx_lut") -> void:
+	material.set_shader_parameter(prefix, texture)
+	material.set_shader_parameter(prefix + "_lo", lo)
+	material.set_shader_parameter(prefix + "_hi", hi)
+	material.set_shader_parameter(prefix + "_size", float(size))
+
+
+## The LUT at grid coordinates t (0..1 per channel), trilinear like the GPU.
+func sample(t: Vector3) -> Vector3:
+	var x: Vector3 = t.clamp(Vector3.ZERO, Vector3.ONE) * (size - 1)
+	var i := Vector3i(x.floor()).mini(size - 2)
+	var f: Vector3 = x - Vector3(i)
+	var result := Vector3.ZERO
+	for db: int in 2:
+		for dg: int in 2:
+			for dr: int in 2:
+				var weight: float = (f.z if db else 1.0 - f.z) * (f.y if dg else 1.0 - f.y) * (f.x if dr else 1.0 - f.x)
+				var c: Color = slices[i.z + db].get_pixel(i.x + dr, i.y + dg)
+				result += Vector3(c.r, c.g, c.b) * weight
+	return result

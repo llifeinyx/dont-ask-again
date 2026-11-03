@@ -32,7 +32,7 @@ run() {
 		[[ $status -eq 124 ]] && echo "FAILED: $name timed out after ${LIMIT}s" || echo "FAILED: $name exited with $status"
 		exit 1
 	fi
-	grep -E "^(PASS|FAIL|BROKEN|TESTS|COMPILE|SHOTS)" "$OUT/$name.log" || true
+	grep -E "^(PASS|FAIL|BROKEN|TESTS|COMPILE|SHOTS|BOT)" "$OUT/$name.log" || true
 	fail_on_errors "$OUT/$name.log"
 }
 
@@ -63,6 +63,17 @@ echo "== ND-OS screenshots"
 run ndos_shots xvfb-run -a -s "-screen 0 1280x720x24" \
 	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --scene res://tests/shots/ndos_shots.tscn \
 	-- --shots="$OUT/shots/states"
+
+echo "== glass screenshots (ND-OS on the front frame)"
+run glass_shots xvfb-run -a -s "-screen 0 1280x720x24" \
+	"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --scene res://tests/shots/glass_shots.tscn \
+	-- --shots="$OUT/shots/states"
+
+echo "== click bot (clicks through the glass at several window sizes)"
+for size in 1280x720 1920x1080 2560x1440 1600x1200; do
+	run "click_bot_$size" xvfb-run -a -s "-screen 0 ${size}x24" \
+		"$GODOT" --path . --audio-driver Dummy --rendering-driver vulkan --scene res://tests/bots/click_bot.tscn
+done
 
 echo "== compare screenshots"
 compare_flags=()

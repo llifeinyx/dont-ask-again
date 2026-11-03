@@ -24,6 +24,13 @@ var flicker_time: float = 0.0:
 ## The light right now. Other nodes only read it.
 var state := LightingPreset.new()
 
+## A 1×1 texture with the mean linear luminance of the picture on the screen; the screen light layer
+## follows it. Null keeps the screen light as Blender rendered it.
+var screen_average: Texture2D:
+	set(value):
+		screen_average = value
+		changed.emit()
+
 
 func _ready() -> void:
 	_update()

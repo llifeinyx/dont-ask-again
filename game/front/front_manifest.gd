@@ -10,7 +10,8 @@ extends Resource
 @export var mug_rect: Rect2i
 ## Blender's exposure in stops, applied to linear light before AgX.
 @export var exposure: float
-## Part of ND-OS (0..1, top-left origin) that shows through the glass; the rest is under the bezel.
+## Part of the glass raster (0..1, top-left origin) fully seen through the glass; the rest is under the
+## bezel.
 @export var ndos_visible: Rect2
 ## A quick low-sample export; it never goes into the repository.
 @export var preview: bool

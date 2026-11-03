@@ -18,7 +18,7 @@ mkdir -p "$out"
 declare -A ICONS=(
 	[corps]=corps [observer]=observer [humanet]=humanet
 	[terminal]=terminal [files]=files [settings]=settings
-	[pixel_circle]=badge [pixel_circle_alert]=badge_alert [pixel_padlock]=padlock
+	[pixel_padlock]=padlock
 	[eye_open]=eye_open
 )
 for name in "${!ICONS[@]}"; do

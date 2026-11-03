@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://tests/bots/click_bot.gd" id="1"]
+[ext_resource type="PackedScene" path="res://game/main/front_view.tscn" id="2"]
+
+[node name="ClickBot" type="Node"]
+script = ExtResource("1")
+
+[node name="FrontView" parent="." instance=ExtResource("2")]

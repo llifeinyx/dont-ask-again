@@ -18,5 +18,6 @@ https://polyhaven.com/license). They reach the game only as part of the rendered
 
 ## Own work
 
-ND-OS icons and badges in `ndos/icons/` are drawn for this game in the project's Figma file and
-rasterised by `tools/ndos/rasterize_icons.sh`.
+ND-OS icons in `ndos/icons/` are drawn for this game in the project's Figma file and rasterised by
+`tools/ndos/rasterize_icons.sh`. The launcher badges' pixel digits (`game/ndos/badge_glyphs.tres`) are
+drawn for this game too.

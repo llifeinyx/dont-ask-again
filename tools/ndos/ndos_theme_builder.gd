@@ -45,8 +45,6 @@ static func build() -> Theme:
 	# Hard pixel steps on the corners, like the rest of the pixel art.
 	hover.anti_aliasing = false
 	theme.set_stylebox("panel", "SlotHover", hover)
-	_label(theme, "BadgeCount", semibold, NdosTokens.BADGE_SIZE, NdosTokens.DARK)
-	_label(theme, "BadgeAlert", semibold, NdosTokens.BADGE_SIZE, NdosTokens.PANEL_TEXT)
 
 	_variation(theme, "AppArea", "Panel")
 	var app: StyleBoxFlat = _flat(NdosTokens.APP_BG)
